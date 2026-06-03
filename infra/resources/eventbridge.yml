@@ -1,0 +1,18 @@
+Resources:
+  EventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: dru-bos-${sls:stage}
+      Tags:
+        - Key: Produto
+          Value: dru-business-os
+        - Key: Ambiente
+          Value: ${sls:stage}
+
+  EventBusArchive:
+    Type: AWS::Events::Archive
+    Properties:
+      ArchiveName: dru-bos-${sls:stage}-archive
+      SourceArn: !GetAtt EventBus.Arn
+      RetentionDays: 90
+      Description: Arquivo de eventos DRU Business OS para auditoria e replay

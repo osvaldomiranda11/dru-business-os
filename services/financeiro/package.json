@@ -1,0 +1,28 @@
+{
+  "name": "@dru-bos/financeiro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Serviço financeiro — receitas, despesas e relatórios",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "deploy:dev": "serverless deploy --stage dev",
+    "remove": "serverless remove",
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@aws-sdk/lib-dynamodb": "^3.600.0",
+    "@dru-bos/shared": "*",
+    "uuid": "^10.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.143",
+    "@types/node": "^20.14.0",
+    "@types/uuid": "^10.0.0",
+    "esbuild": "^0.21.5",
+    "serverless": "^3.40.0",
+    "serverless-esbuild": "^1.52.1",
+    "typescript": "^5.5.4"
+  }
+}

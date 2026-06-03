@@ -1,0 +1,188 @@
+service: dru-bos-financeiro
+
+frameworkVersion: '3'
+
+plugins:
+  - serverless-esbuild
+
+provider:
+  name: aws
+  region: af-south-1
+  stage: ${opt:stage, 'dev'}
+  runtime: nodejs20.x
+  architecture: arm64
+  memorySize: 256
+  timeout: 29
+  logRetentionInDays: 30
+  tags:
+    Produto: dru-business-os
+    Servico: financeiro
+    Ambiente: ${sls:stage}
+  environment:
+    NODE_ENV: ${sls:stage}
+    SERVICE_NAME: dru-bos-financeiro
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    COGNITO_USER_POOL_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolId}
+    COGNITO_CLIENT_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolClientId}
+    FINANCEIRO_TABLE: ${cf:dru-bos-infra-${sls:stage}.FinanceiroTableName}
+    AUDITORIA_TABLE: ${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+          Resource:
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.FinanceiroTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.FinanceiroTableName}/index/*
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    concurrency: 4
+    packager: npm
+
+functions:
+  # --- Receitas ---
+  criarReceita:
+    handler: src/handlers/receitas.criar
+    description: Regista uma nova receita financeira
+    events:
+      - http:
+          path: /financeiro/receitas
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  listarReceitas:
+    handler: src/handlers/receitas.listar
+    description: Lista receitas da empresa com filtros por período
+    events:
+      - http:
+          path: /financeiro/receitas
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  actualizarReceita:
+    handler: src/handlers/receitas.actualizar
+    description: Actualiza uma receita existente
+    events:
+      - http:
+          path: /financeiro/receitas/{id}
+          method: PUT
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  eliminarReceita:
+    handler: src/handlers/receitas.eliminar
+    description: Elimina (soft delete) uma receita
+    events:
+      - http:
+          path: /financeiro/receitas/{id}
+          method: DELETE
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  # --- Despesas ---
+  criarDespesa:
+    handler: src/handlers/despesas.criar
+    description: Regista uma nova despesa financeira
+    events:
+      - http:
+          path: /financeiro/despesas
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  listarDespesas:
+    handler: src/handlers/despesas.listar
+    description: Lista despesas da empresa com filtros por período
+    events:
+      - http:
+          path: /financeiro/despesas
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  actualizarDespesa:
+    handler: src/handlers/despesas.actualizar
+    description: Actualiza uma despesa existente
+    events:
+      - http:
+          path: /financeiro/despesas/{id}
+          method: PUT
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  eliminarDespesa:
+    handler: src/handlers/despesas.eliminar
+    description: Elimina (soft delete) uma despesa
+    events:
+      - http:
+          path: /financeiro/despesas/{id}
+          method: DELETE
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  # --- Relatórios ---
+  fluxoCaixa:
+    handler: src/handlers/relatorios.fluxoCaixa
+    description: Relatório de fluxo de caixa por período
+    memorySize: 512
+    events:
+      - http:
+          path: /financeiro/relatorios/fluxo-caixa
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  lucroPrejuizo:
+    handler: src/handlers/relatorios.lucroPrejuizo
+    description: Relatório de lucro e prejuízo por período
+    memorySize: 512
+    events:
+      - http:
+          path: /financeiro/relatorios/lucro-prejuizo
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}

@@ -1,0 +1,44 @@
+Resources:
+  FilesBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: dru-bos-${sls:stage}-files-${aws:accountId}
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-temp-uploads
+            Status: Enabled
+            Prefix: temp/
+            ExpirationInDays: 1
+          - Id: archive-old-pdfs
+            Status: Enabled
+            Prefix: faturas/
+            Transitions:
+              - TransitionInDays: 365
+                StorageClass: GLACIER
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - '*'
+            AllowedMethods:
+              - GET
+            AllowedHeaders:
+              - '*'
+            MaxAge: 3600
+      Tags:
+        - Key: Produto
+          Value: dru-business-os
+        - Key: Ambiente
+          Value: ${sls:stage}

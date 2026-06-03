@@ -1,0 +1,85 @@
+service: dru-bos-infra
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  region: af-south-1
+  stage: ${opt:stage, 'dev'}
+  tags:
+    Produto: dru-business-os
+    Ambiente: ${sls:stage}
+    Empresa: DRU-Tecnologia
+
+resources:
+  - ${file(resources/cognito.yml)}
+  - ${file(resources/dynamodb.yml)}
+  - ${file(resources/s3.yml)}
+  - ${file(resources/sqs.yml)}
+  - ${file(resources/eventbridge.yml)}
+  - Outputs:
+      # Cognito
+      CognitoUserPoolId:
+        Value: !Ref CognitoUserPool
+        Export:
+          Name: dru-bos-${sls:stage}-cognito-user-pool-id
+      CognitoUserPoolArn:
+        Value: !GetAtt CognitoUserPool.Arn
+        Export:
+          Name: dru-bos-${sls:stage}-cognito-user-pool-arn
+      CognitoUserPoolClientId:
+        Value: !Ref CognitoUserPoolClient
+        Export:
+          Name: dru-bos-${sls:stage}-cognito-user-pool-client-id
+      # DynamoDB
+      EmpresasTableName:
+        Value: !Ref EmpresasTable
+        Export:
+          Name: dru-bos-${sls:stage}-empresas-table
+      UtilizadoresTableName:
+        Value: !Ref UtilizadoresTable
+        Export:
+          Name: dru-bos-${sls:stage}-utilizadores-table
+      FinanceiroTableName:
+        Value: !Ref FinanceiroTable
+        Export:
+          Name: dru-bos-${sls:stage}-financeiro-table
+      FaturacaoTableName:
+        Value: !Ref FaturacaoTable
+        Export:
+          Name: dru-bos-${sls:stage}-faturacao-table
+      StockTableName:
+        Value: !Ref StockTable
+        Export:
+          Name: dru-bos-${sls:stage}-stock-table
+      AuditoriaTableName:
+        Value: !Ref AuditoriaTable
+        Export:
+          Name: dru-bos-${sls:stage}-auditoria-table
+      # S3
+      FilesBucketName:
+        Value: !Ref FilesBucket
+        Export:
+          Name: dru-bos-${sls:stage}-files-bucket
+      FilesBucketArn:
+        Value: !GetAtt FilesBucket.Arn
+        Export:
+          Name: dru-bos-${sls:stage}-files-bucket-arn
+      # SQS
+      SyncQueueUrl:
+        Value: !Ref SyncQueue
+        Export:
+          Name: dru-bos-${sls:stage}-sync-queue-url
+      SyncQueueArn:
+        Value: !GetAtt SyncQueue.Arn
+        Export:
+          Name: dru-bos-${sls:stage}-sync-queue-arn
+      # EventBridge
+      EventBusName:
+        Value: !Ref EventBus
+        Export:
+          Name: dru-bos-${sls:stage}-event-bus-name
+      EventBusArn:
+        Value: !GetAtt EventBus.Arn
+        Export:
+          Name: dru-bos-${sls:stage}-event-bus-arn

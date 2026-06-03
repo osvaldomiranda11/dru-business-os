@@ -1,0 +1,102 @@
+name: Deploy — Produção
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy-infra:
+    name: Deploy Infraestrutura
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Configurar AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: af-south-1
+
+      - name: Deploy — Infraestrutura partilhada
+        run: cd infra && npx serverless deploy --stage prod --verbose
+
+  deploy-auth:
+    name: Deploy Serviço Auth
+    runs-on: ubuntu-latest
+    environment: production
+    needs: deploy-infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Configurar AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: af-south-1
+
+      - name: Deploy — Auth
+        run: cd services/auth && npx serverless deploy --stage prod --verbose
+
+  deploy-financeiro:
+    name: Deploy Serviço Financeiro
+    runs-on: ubuntu-latest
+    environment: production
+    needs: deploy-infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Configurar AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: af-south-1
+
+      - name: Deploy — Financeiro
+        run: cd services/financeiro && npx serverless deploy --stage prod --verbose
+
+  notify:
+    name: Notificação de Deploy
+    runs-on: ubuntu-latest
+    needs: [deploy-auth, deploy-financeiro]
+    if: always()
+    steps:
+      - name: Resultado do deploy
+        run: |
+          if [ "${{ needs.deploy-auth.result }}" == "success" ] && [ "${{ needs.deploy-financeiro.result }}" == "success" ]; then
+            echo "✅ Deploy de produção concluído com sucesso"
+          else
+            echo "❌ Deploy de produção falhou"
+            exit 1
+          fi

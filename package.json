@@ -1,0 +1,29 @@
+{
+  "name": "dru-business-os",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DRU Business OS — Plataforma SaaS de gestão empresarial para PMEs angolanas",
+  "author": "Osvaldo Miranda <osvaldo@dru.ao>",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "deploy:infra": "cd infra && npx serverless deploy --stage prod",
+    "deploy:infra:dev": "cd infra && npx serverless deploy --stage dev",
+    "deploy:auth": "cd services/auth && npx serverless deploy --stage prod",
+    "deploy:auth:dev": "cd services/auth && npx serverless deploy --stage dev",
+    "deploy:financeiro": "cd services/financeiro && npx serverless deploy --stage prod",
+    "deploy:financeiro:dev": "cd services/financeiro && npx serverless deploy --stage dev",
+    "deploy:all": "npm run deploy:infra && npm run deploy:auth && npm run deploy:financeiro",
+    "deploy:all:dev": "npm run deploy:infra:dev && npm run deploy:auth:dev && npm run deploy:financeiro:dev",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

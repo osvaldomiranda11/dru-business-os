@@ -1,0 +1,26 @@
+Resources:
+  SyncQueueDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: dru-bos-${sls:stage}-sync-dlq
+      MessageRetentionPeriod: 1209600  # 14 dias
+      Tags:
+        - Key: Produto
+          Value: dru-business-os
+        - Key: Ambiente
+          Value: ${sls:stage}
+
+  SyncQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: dru-bos-${sls:stage}-sync
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 86400  # 24 horas
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt SyncQueueDLQ.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Produto
+          Value: dru-business-os
+        - Key: Ambiente
+          Value: ${sls:stage}

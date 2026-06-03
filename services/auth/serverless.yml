@@ -1,0 +1,106 @@
+service: dru-bos-auth
+
+frameworkVersion: '3'
+
+plugins:
+  - serverless-esbuild
+
+provider:
+  name: aws
+  region: af-south-1
+  stage: ${opt:stage, 'dev'}
+  runtime: nodejs20.x
+  architecture: arm64
+  memorySize: 256
+  timeout: 29
+  logRetentionInDays: 30
+  tags:
+    Produto: dru-business-os
+    Servico: auth
+    Ambiente: ${sls:stage}
+  environment:
+    NODE_ENV: ${sls:stage}
+    SERVICE_NAME: dru-bos-auth
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    COGNITO_USER_POOL_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolId}
+    COGNITO_CLIENT_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolClientId}
+    EMPRESAS_TABLE: ${cf:dru-bos-infra-${sls:stage}.EmpresasTableName}
+    UTILIZADORES_TABLE: ${cf:dru-bos-infra-${sls:stage}.UtilizadoresTableName}
+    AUDITORIA_TABLE: ${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - cognito-idp:AdminCreateUser
+            - cognito-idp:AdminSetUserPassword
+            - cognito-idp:AdminGetUser
+            - cognito-idp:AdminUpdateUserAttributes
+            - cognito-idp:InitiateAuth
+          Resource: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:Query
+          Resource:
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.EmpresasTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.UtilizadoresTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    concurrency: 4
+    packager: npm
+
+functions:
+  register:
+    handler: src/handlers/register.handler
+    description: Registo de nova empresa e utilizador administrador
+    events:
+      - http:
+          path: /auth/register
+          method: POST
+          cors: true
+
+  login:
+    handler: src/handlers/login.handler
+    description: Autenticação de utilizador com email e password
+    events:
+      - http:
+          path: /auth/login
+          method: POST
+          cors: true
+
+  refresh:
+    handler: src/handlers/refresh.handler
+    description: Renovação de tokens via refresh token
+    events:
+      - http:
+          path: /auth/refresh
+          method: POST
+          cors: true
+
+  me:
+    handler: src/handlers/me.handler
+    description: Perfil do utilizador autenticado
+    events:
+      - http:
+          path: /auth/me
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+            claims:
+              - email
+              - custom:empresa_id
+              - custom:role
+              - name
