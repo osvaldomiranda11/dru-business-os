@@ -52,6 +52,10 @@ resources:
         Value: !Ref StockTable
         Export:
           Name: dru-bos-${sls:stage}-stock-table
+      ClientesTableName:
+        Value: !Ref ClientesTable
+        Export:
+          Name: dru-bos-${sls:stage}-clientes-table
       AuditoriaTableName:
         Value: !Ref AuditoriaTable
         Export:

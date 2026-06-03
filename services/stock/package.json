@@ -1,8 +1,8 @@
 {
-  "name": "@dru-bos/financeiro",
+  "name": "@dru-bos/stock",
   "version": "1.0.0",
   "private": true,
-  "description": "Serviço financeiro — receitas, despesas e relatórios",
+  "description": "Serviço de gestão de stock — produtos, movimentos e alertas",
   "scripts": {
     "deploy": "serverless deploy",
     "deploy:dev": "serverless deploy --stage dev",
@@ -11,6 +11,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@aws-sdk/client-eventbridge": "^3.600.0",
     "@aws-sdk/lib-dynamodb": "^3.600.0",
     "@dru-bos/shared": "*",
     "uuid": "^10.0.0",

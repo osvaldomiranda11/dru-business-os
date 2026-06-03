@@ -10,14 +10,20 @@
     "services/*"
   ],
   "scripts": {
-    "deploy:infra": "cd infra && npx serverless deploy --stage prod",
-    "deploy:infra:dev": "cd infra && npx serverless deploy --stage dev",
-    "deploy:auth": "cd services/auth && npx serverless deploy --stage prod",
-    "deploy:auth:dev": "cd services/auth && npx serverless deploy --stage dev",
-    "deploy:financeiro": "cd services/financeiro && npx serverless deploy --stage prod",
-    "deploy:financeiro:dev": "cd services/financeiro && npx serverless deploy --stage dev",
-    "deploy:all": "npm run deploy:infra && npm run deploy:auth && npm run deploy:financeiro",
-    "deploy:all:dev": "npm run deploy:infra:dev && npm run deploy:auth:dev && npm run deploy:financeiro:dev",
+    "deploy:infra": "cd infra && serverless deploy --stage prod",
+    "deploy:infra:dev": "cd infra && serverless deploy --stage dev",
+    "deploy:auth": "cd services/auth && serverless deploy --stage prod",
+    "deploy:auth:dev": "cd services/auth && serverless deploy --stage dev",
+    "deploy:financeiro": "cd services/financeiro && serverless deploy --stage prod",
+    "deploy:financeiro:dev": "cd services/financeiro && serverless deploy --stage dev",
+    "deploy:clientes": "cd services/clientes && serverless deploy --stage prod",
+    "deploy:clientes:dev": "cd services/clientes && serverless deploy --stage dev",
+    "deploy:faturacao": "cd services/faturacao && serverless deploy --stage prod",
+    "deploy:faturacao:dev": "cd services/faturacao && serverless deploy --stage dev",
+    "deploy:stock": "cd services/stock && serverless deploy --stage prod",
+    "deploy:stock:dev": "cd services/stock && serverless deploy --stage dev",
+    "deploy:all": "npm run deploy:infra && npm run deploy:auth && npm run deploy:financeiro && npm run deploy:clientes && npm run deploy:faturacao && npm run deploy:stock",
+    "deploy:all:dev": "npm run deploy:infra:dev && npm run deploy:auth:dev && npm run deploy:financeiro:dev && npm run deploy:clientes:dev && npm run deploy:faturacao:dev && npm run deploy:stock:dev",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
@@ -25,5 +31,15 @@
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=10.0.0"
+  },
+  "devDependencies": {
+    "fast-deep-equal": "^3.1.3",
+    "serverless": "^3.40.0",
+    "serverless-esbuild": "^1.52.1"
+  },
+  "overrides": {
+    "ajv": {
+      "fast-deep-equal": "^3.1.3"
+    }
   }
 }

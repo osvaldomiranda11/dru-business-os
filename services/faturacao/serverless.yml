@@ -1,0 +1,141 @@
+service: dru-bos-faturacao
+
+frameworkVersion: '3'
+
+plugins:
+  - serverless-esbuild
+
+provider:
+  name: aws
+  region: af-south-1
+  stage: ${opt:stage, 'dev'}
+  runtime: nodejs20.x
+  architecture: arm64
+  memorySize: 256
+  timeout: 29
+  logRetentionInDays: 30
+  tags:
+    Produto: dru-business-os
+    Servico: faturacao
+    Ambiente: ${sls:stage}
+  environment:
+    NODE_ENV: ${sls:stage}
+    SERVICE_NAME: dru-bos-faturacao
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    COGNITO_USER_POOL_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolId}
+    COGNITO_CLIENT_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolClientId}
+    FATURACAO_TABLE: ${cf:dru-bos-infra-${sls:stage}.FaturacaoTableName}
+    AUDITORIA_TABLE: ${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+    FILES_BUCKET: ${cf:dru-bos-infra-${sls:stage}.FilesBucketName}
+    EVENT_BUS_NAME: ${cf:dru-bos-infra-${sls:stage}.EventBusName}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:Query
+          Resource:
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.FaturacaoTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.FaturacaoTableName}/index/*
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:GeneratePresignedUrl
+          Resource: arn:aws:s3:::${cf:dru-bos-infra-${sls:stage}.FilesBucketName}/faturas/*
+        - Effect: Allow
+          Action:
+            - events:PutEvents
+          Resource: ${cf:dru-bos-infra-${sls:stage}.EventBusArn}
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    concurrency: 4
+    packager: npm
+
+functions:
+  emitirFatura:
+    handler: src/handlers/faturas.emitir
+    description: Emite uma nova fatura com numeração sequencial
+    memorySize: 512
+    events:
+      - http:
+          path: /faturas
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  listarFaturas:
+    handler: src/handlers/faturas.listar
+    description: Lista faturas com filtros por estado e período
+    events:
+      - http:
+          path: /faturas
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  obterFatura:
+    handler: src/handlers/faturas.obter
+    description: Obtém detalhes de uma fatura
+    events:
+      - http:
+          path: /faturas/{id}
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  registarPagamento:
+    handler: src/handlers/faturas.registarPagamento
+    description: Regista pagamento de uma fatura
+    events:
+      - http:
+          path: /faturas/{id}/pagamento
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  gerarPdf:
+    handler: src/handlers/faturas.gerarPdf
+    description: Gera PDF da fatura e retorna URL de download
+    memorySize: 1024
+    timeout: 29
+    events:
+      - http:
+          path: /faturas/{id}/pdf
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  webhookMulticaixa:
+    handler: src/handlers/pagamentos.webhookMulticaixa
+    description: Webhook de confirmação de pagamento Multicaixa Express
+    events:
+      - http:
+          path: /pagamentos/multicaixa/webhook
+          method: POST
+          cors: false

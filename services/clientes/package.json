@@ -1,8 +1,8 @@
 {
-  "name": "@dru-bos/financeiro",
+  "name": "@dru-bos/clientes",
   "version": "1.0.0",
   "private": true,
-  "description": "Serviço financeiro — receitas, despesas e relatórios",
+  "description": "Serviço de gestão de clientes — CRM para PMEs angolanas",
   "scripts": {
     "deploy": "serverless deploy",
     "deploy:dev": "serverless deploy --stage dev",

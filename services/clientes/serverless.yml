@@ -1,0 +1,136 @@
+service: dru-bos-clientes
+
+frameworkVersion: '3'
+
+plugins:
+  - serverless-esbuild
+
+provider:
+  name: aws
+  region: af-south-1
+  stage: ${opt:stage, 'dev'}
+  runtime: nodejs20.x
+  architecture: arm64
+  memorySize: 256
+  timeout: 29
+  logRetentionInDays: 30
+  tags:
+    Produto: dru-business-os
+    Servico: clientes
+    Ambiente: ${sls:stage}
+  environment:
+    NODE_ENV: ${sls:stage}
+    SERVICE_NAME: dru-bos-clientes
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    COGNITO_USER_POOL_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolId}
+    COGNITO_CLIENT_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolClientId}
+    CLIENTES_TABLE: ${cf:dru-bos-infra-${sls:stage}.ClientesTableName}
+    AUDITORIA_TABLE: ${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+    EVENT_BUS_NAME: ${cf:dru-bos-infra-${sls:stage}.EventBusName}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+          Resource:
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.ClientesTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.ClientesTableName}/index/*
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+        - Effect: Allow
+          Action:
+            - events:PutEvents
+          Resource: ${cf:dru-bos-infra-${sls:stage}.EventBusArn}
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    concurrency: 4
+    packager: npm
+
+functions:
+  criarCliente:
+    handler: src/handlers/clientes.criar
+    description: Regista um novo cliente
+    events:
+      - http:
+          path: /clientes
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  listarClientes:
+    handler: src/handlers/clientes.listar
+    description: Lista clientes da empresa
+    events:
+      - http:
+          path: /clientes
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  obterCliente:
+    handler: src/handlers/clientes.obter
+    description: Obtém detalhes de um cliente
+    events:
+      - http:
+          path: /clientes/{id}
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  actualizarCliente:
+    handler: src/handlers/clientes.actualizar
+    description: Actualiza dados de um cliente
+    events:
+      - http:
+          path: /clientes/{id}
+          method: PUT
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  eliminarCliente:
+    handler: src/handlers/clientes.eliminar
+    description: Elimina (soft delete) um cliente
+    events:
+      - http:
+          path: /clientes/{id}
+          method: DELETE
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  historicoCliente:
+    handler: src/handlers/clientes.historico
+    description: Histórico de faturas e interacções do cliente
+    events:
+      - http:
+          path: /clientes/{id}/historico
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
