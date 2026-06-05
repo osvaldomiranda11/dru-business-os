@@ -1,7 +1,7 @@
 Resources:
   EmpresasTable:
     Type: AWS::DynamoDB::Table
-    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}, Retain}
+    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}}
     Properties:
       TableName: dru-bos-${sls:stage}-empresas
       BillingMode: PAY_PER_REQUEST
@@ -27,7 +27,7 @@ Resources:
 
   UtilizadoresTable:
     Type: AWS::DynamoDB::Table
-    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}, Retain}
+    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}}
     Properties:
       TableName: dru-bos-${sls:stage}-utilizadores
       BillingMode: PAY_PER_REQUEST
@@ -66,7 +66,7 @@ Resources:
 
   FinanceiroTable:
     Type: AWS::DynamoDB::Table
-    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}, Retain}
+    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}}
     Properties:
       TableName: dru-bos-${sls:stage}-financeiro
       BillingMode: PAY_PER_REQUEST
@@ -105,7 +105,7 @@ Resources:
 
   FaturacaoTable:
     Type: AWS::DynamoDB::Table
-    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}, Retain}
+    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}}
     Properties:
       TableName: dru-bos-${sls:stage}-faturacao
       BillingMode: PAY_PER_REQUEST
@@ -144,7 +144,7 @@ Resources:
 
   StockTable:
     Type: AWS::DynamoDB::Table
-    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}, Retain}
+    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}}
     Properties:
       TableName: dru-bos-${sls:stage}-stock
       BillingMode: PAY_PER_REQUEST
@@ -183,7 +183,7 @@ Resources:
 
   ClientesTable:
     Type: AWS::DynamoDB::Table
-    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}, Retain}
+    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}}
     Properties:
       TableName: dru-bos-${sls:stage}-clientes
       BillingMode: PAY_PER_REQUEST
@@ -259,7 +259,3 @@ Resources:
         - Key: Ambiente
           Value: ${sls:stage}
 
-custom:
-  deletionPolicy:
-    prod: Retain
-    dev: Delete

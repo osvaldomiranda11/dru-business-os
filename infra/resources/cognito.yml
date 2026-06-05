@@ -10,13 +10,14 @@ Resources:
       MfaConfiguration: OPTIONAL
       EnabledMfas:
         - SOFTWARE_TOKEN_MFA
-      PasswordPolicy:
-        MinimumLength: 8
-        RequireUppercase: true
-        RequireLowercase: true
-        RequireNumbers: true
-        RequireSymbols: false
-        TemporaryPasswordValidityDays: 7
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          TemporaryPasswordValidityDays: 7
       Schema:
         - Name: email
           AttributeDataType: String
@@ -44,14 +45,9 @@ Resources:
             Priority: 1
       EmailConfiguration:
         EmailSendingAccount: COGNITO_DEFAULT
-      UserPoolAddOns:
-        AdvancedSecurityMode: AUDIT
-      DeletionProtection: ${self:custom.cognitoDeletionProtection.${sls:stage}, 'INACTIVE'}
-      Tags:
-        - Key: Produto
-          Value: dru-business-os
-        - Key: Ambiente
-          Value: ${sls:stage}
+      UserPoolTags:
+        Produto: dru-business-os
+        Ambiente: ${sls:stage}
 
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -80,8 +76,3 @@ Resources:
         - email
         - name
         - custom:role
-
-custom:
-  cognitoDeletionProtection:
-    prod: ACTIVE
-    dev: INACTIVE

@@ -2,6 +2,11 @@ service: dru-bos-infra
 
 frameworkVersion: '3'
 
+custom:
+  deletionPolicy:
+    prod: Retain
+    dev: Delete
+
 provider:
   name: aws
   region: af-south-1

@@ -99,8 +99,3 @@ functions:
             name: CognitoAuthorizer
             type: COGNITO_USER_POOLS
             arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
-            claims:
-              - email
-              - custom:empresa_id
-              - custom:role
-              - name
