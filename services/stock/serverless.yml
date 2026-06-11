@@ -140,7 +140,7 @@ functions:
     description: Verifica produtos abaixo do stock mínimo (EventBridge scheduled)
     events:
       - eventBridge:
-          eventBus: ${cf:dru-bos-infra-${sls:stage}.EventBusName}
+          eventBus: ${cf:dru-bos-infra-${sls:stage}.EventBusArn}
           pattern:
             source:
               - dru-bos.stock
