@@ -30,6 +30,15 @@ jobs:
       - name: Type check — financeiro
         run: cd services/financeiro && npx tsc --noEmit
 
+      - name: Type check — clientes
+        run: cd services/clientes && npx tsc --noEmit
+
+      - name: Type check — stock
+        run: cd services/stock && npx tsc --noEmit
+
+      - name: Type check — faturacao
+        run: cd services/faturacao && npx tsc --noEmit
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
