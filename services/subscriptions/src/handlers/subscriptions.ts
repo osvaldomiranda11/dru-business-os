@@ -47,7 +47,7 @@ interface PlanoDefinicao {
 const PLANOS: Record<PlanoSubscricao, PlanoDefinicao> = {
   starter: {
     id: 'starter',
-    nome: 'Starter',
+    nome: 'Essencial',
     precoMensalUSD: 49,
     precoMensalAOA: 45000,
     maxUtilizadores: 1,
@@ -61,13 +61,13 @@ const PLANOS: Record<PlanoSubscricao, PlanoDefinicao> = {
   },
   growth: {
     id: 'growth',
-    nome: 'Growth',
+    nome: 'Profissional',
     precoMensalUSD: 149,
     precoMensalAOA: 137000,
     maxUtilizadores: 5,
     modulos: ['financeiro', 'faturacao', 'stock', 'clientes', 'dashboard'],
     recursos: [
-      'Tudo do Starter',
+      'Tudo do Essencial',
       'Gestão de stock',
       'CRM clientes',
       'Dashboard avançado',
@@ -78,13 +78,13 @@ const PLANOS: Record<PlanoSubscricao, PlanoDefinicao> = {
   },
   enterprise: {
     id: 'enterprise',
-    nome: 'Enterprise',
+    nome: 'Empresarial',
     precoMensalUSD: 399,
     precoMensalAOA: 367000,
     maxUtilizadores: null,
     modulos: ['financeiro', 'faturacao', 'stock', 'clientes', 'dashboard', 'api'],
     recursos: [
-      'Tudo do Growth',
+      'Tudo do Profissional',
       'Utilizadores ilimitados',
       'API REST',
       'SLA 99.9%',

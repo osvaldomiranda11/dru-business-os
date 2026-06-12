@@ -443,6 +443,11 @@ export const gerarPdf: APIGatewayProxyHandler = async (event) => {
   }
 };
 
+// Cores da identidade DRU — sincronizar com docs/brand/README.md
+const BRAND_PRIMARY = '#0A2540';
+const BRAND_SUCCESS = '#00A86B';
+const BRAND_TEXT_SECONDARY = '#6B7280';
+
 function gerarPdfBuffer(fatura: Fatura): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -451,8 +456,15 @@ function gerarPdfBuffer(fatura: Fatura): Promise<Buffer> {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    doc.fontSize(18).text('FATURA', { align: 'right' });
-    doc.fontSize(10).text(`Nº ${fatura.numero}`, { align: 'right' });
+    // Cabeçalho com marca DRU (quadrado azul + "D" + texto)
+    doc.rect(50, 45, 40, 40).fill(BRAND_PRIMARY);
+    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(26).text('D', 50, 53, { width: 40, align: 'center' });
+    doc.fillColor(BRAND_PRIMARY).fontSize(18).text('DRU', 100, 50);
+    doc.fillColor(BRAND_SUCCESS).fontSize(10).text('Business OS', 100, 72);
+
+    // Bloco "FATURA" à direita
+    doc.fillColor(BRAND_PRIMARY).font('Helvetica-Bold').fontSize(20).text('FATURA', 0, 50, { align: 'right' });
+    doc.fillColor('#000000').font('Helvetica').fontSize(10).text(`Nº ${fatura.numero}`, { align: 'right' });
     doc.text(`Data de emissão: ${fatura.dataEmissao}`, { align: 'right' });
     if (fatura.dataVencimento) {
       doc.text(`Data de vencimento: ${fatura.dataVencimento}`, { align: 'right' });
@@ -509,8 +521,8 @@ function gerarPdfBuffer(fatura: Fatura): Promise<Buffer> {
     }
 
     doc.moveDown(2);
-    doc.fontSize(8).fillColor('gray').text(
-      'Documento processado por programa válido — DRU Business OS',
+    doc.fontSize(8).fillColor(BRAND_TEXT_SECONDARY).text(
+      'Documento processado por programa válido — DRU Business OS · Gestão profissional para empresas angolanas',
       { align: 'center' },
     );
 
