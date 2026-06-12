@@ -93,6 +93,17 @@ npm run deploy:financeiro:dev
 
 ---
 
+## Documentação interactiva
+
+A especificação completa da API está em [`docs/openapi.yaml`](docs/openapi.yaml).
+Para consultar visualmente abra [`docs/index.html`](docs/index.html) no browser
+(serve qualquer Swagger UI estático — pode ser hospedado em GitHub Pages, S3 ou CloudFront).
+
+> **Autenticação**: usar o `idToken` (não `accessToken`) retornado por `/auth/login`
+> no header `Authorization: Bearer <idToken>`.
+
+---
+
 ## Endpoints da API
 
 ### Autenticação (`/auth`)

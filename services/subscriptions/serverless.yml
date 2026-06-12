@@ -1,0 +1,120 @@
+service: dru-bos-subscriptions
+
+frameworkVersion: '3'
+
+plugins:
+  - serverless-esbuild
+
+provider:
+  name: aws
+  region: af-south-1
+  stage: ${opt:stage, 'dev'}
+  runtime: nodejs20.x
+  architecture: arm64
+  memorySize: 256
+  timeout: 29
+  logRetentionInDays: 30
+  tags:
+    Produto: dru-business-os
+    Servico: subscriptions
+    Ambiente: ${sls:stage}
+  environment:
+    NODE_ENV: ${sls:stage}
+    SERVICE_NAME: dru-bos-subscriptions
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    COGNITO_USER_POOL_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolId}
+    COGNITO_CLIENT_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolClientId}
+    EMPRESAS_TABLE: ${cf:dru-bos-infra-${sls:stage}.EmpresasTableName}
+    UTILIZADORES_TABLE: ${cf:dru-bos-infra-${sls:stage}.UtilizadoresTableName}
+    AUDITORIA_TABLE: ${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+    EVENT_BUS_NAME: ${cf:dru-bos-infra-${sls:stage}.EventBusName}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:Query
+          Resource:
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.EmpresasTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.UtilizadoresTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.UtilizadoresTableName}/index/*
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+        - Effect: Allow
+          Action:
+            - events:PutEvents
+          Resource: ${cf:dru-bos-infra-${sls:stage}.EventBusArn}
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    concurrency: 4
+    packager: npm
+
+functions:
+  listarPlanos:
+    handler: src/handlers/subscriptions.listarPlanos
+    description: Lista todos os planos disponiveis (publico)
+    events:
+      - http:
+          path: /planos
+          method: GET
+          cors: true
+
+  obterSubscricao:
+    handler: src/handlers/subscriptions.obterSubscricao
+    description: Obtem detalhes da subscricao actual da empresa
+    events:
+      - http:
+          path: /subscricao
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  alterarPlano:
+    handler: src/handlers/subscriptions.alterarPlano
+    description: Upgrade/downgrade de plano (apenas admin)
+    events:
+      - http:
+          path: /subscricao/plano
+          method: PUT
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  cancelarSubscricao:
+    handler: src/handlers/subscriptions.cancelarSubscricao
+    description: Cancela a subscricao (apenas admin)
+    events:
+      - http:
+          path: /subscricao
+          method: DELETE
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  verificarLimites:
+    handler: src/handlers/subscriptions.verificarLimites
+    description: Verifica limites do plano actual (utilizadores, modulos)
+    events:
+      - http:
+          path: /subscricao/limites
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}

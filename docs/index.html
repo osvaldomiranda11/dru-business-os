@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DRU Business OS — API Reference</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css" />
+  <style>
+    body { margin: 0; background: #fafafa; }
+    .topbar { background: #1a1a2e; padding: 16px 24px; color: #fff; font-family: sans-serif; }
+    .topbar h1 { margin: 0; font-size: 18px; }
+    .topbar small { color: #aaa; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>DRU Business OS — API</h1>
+    <small>Plataforma SaaS de gestão para PMEs angolanas · DRU Tecnologia 2026</small>
+  </div>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+  <script>
+    window.ui = SwaggerUIBundle({
+      url: 'openapi.yaml',
+      dom_id: '#swagger-ui',
+      deepLinking: true,
+      presets: [SwaggerUIBundle.presets.apis],
+      layout: 'BaseLayout',
+      tryItOutEnabled: true,
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+service: dru-bos-dashboard
+
+frameworkVersion: '3'
+
+plugins:
+  - serverless-esbuild
+
+provider:
+  name: aws
+  region: af-south-1
+  stage: ${opt:stage, 'dev'}
+  runtime: nodejs20.x
+  architecture: arm64
+  memorySize: 512
+  timeout: 29
+  logRetentionInDays: 30
+  tags:
+    Produto: dru-business-os
+    Servico: dashboard
+    Ambiente: ${sls:stage}
+  environment:
+    NODE_ENV: ${sls:stage}
+    SERVICE_NAME: dru-bos-dashboard
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    COGNITO_USER_POOL_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolId}
+    COGNITO_CLIENT_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolClientId}
+    FINANCEIRO_TABLE: ${cf:dru-bos-infra-${sls:stage}.FinanceiroTableName}
+    FATURACAO_TABLE: ${cf:dru-bos-infra-${sls:stage}.FaturacaoTableName}
+    STOCK_TABLE: ${cf:dru-bos-infra-${sls:stage}.StockTableName}
+    CLIENTES_TABLE: ${cf:dru-bos-infra-${sls:stage}.ClientesTableName}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:GetItem
+          Resource:
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.FinanceiroTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.FinanceiroTableName}/index/*
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.FaturacaoTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.FaturacaoTableName}/index/*
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.StockTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.StockTableName}/index/*
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.ClientesTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.ClientesTableName}/index/*
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    concurrency: 4
+    packager: npm
+
+functions:
+  resumo:
+    handler: src/handlers/dashboard.resumo
+    description: KPIs agregados da empresa (financeiro, faturacao, stock, clientes)
+    events:
+      - http:
+          path: /dashboard/resumo
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  fluxoCaixa:
+    handler: src/handlers/dashboard.fluxoCaixa
+    description: Fluxo de caixa dos ultimos N meses
+    events:
+      - http:
+          path: /dashboard/fluxo-caixa
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  topProdutos:
+    handler: src/handlers/dashboard.topProdutos
+    description: Top N produtos por valor de stock
+    events:
+      - http:
+          path: /dashboard/top-produtos
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  alertas:
+    handler: src/handlers/dashboard.alertas
+    description: Alertas accionaveis (stock minimo, faturas vencidas, etc.)
+    events:
+      - http:
+          path: /dashboard/alertas
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}

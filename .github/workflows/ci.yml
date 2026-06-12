@@ -6,6 +6,10 @@ on:
   push:
     branches: [develop]
 
+env:
+  # Antecipa a migração GitHub Actions Node.js 20 → 24 (deadline 2026-09-16)
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   typecheck:
     name: Type Check
@@ -38,6 +42,12 @@ jobs:
 
       - name: Type check — faturacao
         run: cd services/faturacao && npx tsc --noEmit
+
+      - name: Type check — dashboard
+        run: cd services/dashboard && npx tsc --noEmit
+
+      - name: Type check — subscriptions
+        run: cd services/subscriptions && npx tsc --noEmit
 
   lint:
     name: Lint

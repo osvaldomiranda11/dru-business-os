@@ -1,0 +1,592 @@
+openapi: 3.0.3
+info:
+  title: DRU Business OS — API
+  description: |
+    Plataforma SaaS de gestão empresarial para PMEs angolanas.
+    Microserviços: Auth, Financeiro, Clientes, Stock, Faturação, Dashboard, Subscriptions.
+
+    **Autenticação**: usar o `idToken` (não `accessToken`) retornado por `/auth/login` no
+    header `Authorization: Bearer <idToken>`.
+  version: 1.0.0
+  contact:
+    name: DRU Tecnologia
+    email: suporte@dru.ao
+  license:
+    name: Proprietário · DRU Tecnologia 2026
+servers:
+  - url: https://api-dev.dru.ao
+    description: Desenvolvimento (a configurar via Route53)
+  - url: https://api.dru.ao
+    description: Produção (a configurar via Route53)
+
+tags:
+  - name: Auth
+    description: Autenticação e registo
+  - name: Utilizadores
+    description: Gestão de utilizadores da empresa
+  - name: Financeiro
+    description: Receitas, despesas e relatórios
+  - name: Clientes
+    description: Gestão de clientes (CRM)
+  - name: Stock
+    description: Produtos e movimentos de inventário
+  - name: Faturação
+    description: Emissão de faturas, pagamentos e PDF
+  - name: Dashboard
+    description: KPIs agregados
+  - name: Subscriptions
+    description: Planos e subscrições
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: idToken Cognito (não accessToken)
+
+  schemas:
+    Erro:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error: { type: string }
+        details: { type: object }
+    Sucesso:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: { type: object }
+    Moeda:
+      type: string
+      enum: [AOA, USD]
+    Role:
+      type: string
+      enum: [admin, gestor, vendedor, viewer]
+    Plano:
+      type: string
+      enum: [starter, growth, enterprise]
+
+paths:
+  # ── AUTH ───────────────────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Registar nova empresa + utilizador admin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome, email, password, nomeEmpresa, nifEmpresa]
+              properties:
+                nome: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                nomeEmpresa: { type: string }
+                nifEmpresa: { type: string, pattern: '^\d{9,14}$' }
+                telefone: { type: string }
+                moedaPadrao: { $ref: '#/components/schemas/Moeda' }
+      responses:
+        '201': { description: Empresa criada }
+        '409': { description: Email já registado }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login com email e password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Tokens emitidos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      accessToken: { type: string }
+                      idToken: { type: string, description: Usar este token nos headers Authorization }
+                      refreshToken: { type: string }
+                      expiresIn: { type: integer, example: 3600 }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Renovar idToken via refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200': { description: Novos tokens emitidos }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Perfil do utilizador autenticado
+      responses:
+        '200': { description: Utilizador + empresa }
+
+  # ── UTILIZADORES ───────────────────────────────────────────────────────────
+  /utilizadores:
+    get:
+      tags: [Utilizadores]
+      summary: Listar utilizadores da empresa
+      responses:
+        '200': { description: Lista de utilizadores }
+    post:
+      tags: [Utilizadores]
+      summary: Convidar novo utilizador (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome, email]
+              properties:
+                nome: { type: string }
+                email: { type: string, format: email }
+                role: { $ref: '#/components/schemas/Role' }
+      responses:
+        '201': { description: Utilizador convidado, retorna passwordTemporaria }
+        '403': { description: Apenas admin }
+        '409': { description: Email já registado }
+
+  /utilizadores/{id}/role:
+    put:
+      tags: [Utilizadores]
+      summary: Alterar role de um utilizador (admin only)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { $ref: '#/components/schemas/Role' }
+      responses:
+        '200': { description: Role actualizado }
+
+  /utilizadores/{id}:
+    delete:
+      tags: [Utilizadores]
+      summary: Desactivar utilizador (admin only)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Utilizador desactivado }
+
+  /utilizadores/{id}/reactivar:
+    post:
+      tags: [Utilizadores]
+      summary: Reactivar utilizador (admin only)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Utilizador reactivado }
+
+  # ── FINANCEIRO ─────────────────────────────────────────────────────────────
+  /financeiro/receitas:
+    get:
+      tags: [Financeiro]
+      summary: Listar receitas
+      parameters:
+        - { name: categoria, in: query, schema: { type: string } }
+        - { name: dataInicio, in: query, schema: { type: string, format: date } }
+        - { name: dataFim, in: query, schema: { type: string, format: date } }
+      responses: { '200': { description: Lista de receitas } }
+    post:
+      tags: [Financeiro]
+      summary: Registar receita
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [descricao, valor, categoria, data]
+              properties:
+                descricao: { type: string }
+                valor: { type: number }
+                moeda: { $ref: '#/components/schemas/Moeda' }
+                categoria: { type: string, enum: [vendas, servicos, comissoes, juros, outros] }
+                data: { type: string, format: date }
+                observacoes: { type: string }
+      responses: { '201': { description: Receita criada } }
+
+  /financeiro/receitas/{id}:
+    put:
+      tags: [Financeiro]
+      summary: Actualizar receita
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Receita actualizada } }
+    delete:
+      tags: [Financeiro]
+      summary: Eliminar receita (soft delete)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '204': { description: Eliminada } }
+
+  /financeiro/despesas:
+    get:
+      tags: [Financeiro]
+      summary: Listar despesas
+      responses: { '200': { description: Lista de despesas } }
+    post:
+      tags: [Financeiro]
+      summary: Registar despesa
+      responses: { '201': { description: Despesa criada } }
+
+  /financeiro/despesas/{id}:
+    put:
+      tags: [Financeiro]
+      summary: Actualizar despesa
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Actualizada } }
+    delete:
+      tags: [Financeiro]
+      summary: Eliminar despesa
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '204': { description: Eliminada } }
+
+  /financeiro/relatorios/fluxo-caixa:
+    get:
+      tags: [Financeiro]
+      summary: Fluxo de caixa por período
+      parameters:
+        - { name: ano, in: query, required: true, schema: { type: integer } }
+        - { name: mes, in: query, schema: { type: integer } }
+      responses: { '200': { description: Fluxo de caixa } }
+
+  /financeiro/relatorios/lucro-prejuizo:
+    get:
+      tags: [Financeiro]
+      summary: Lucro e prejuízo por período
+      parameters:
+        - { name: ano, in: query, required: true, schema: { type: integer } }
+        - { name: mes, in: query, schema: { type: integer } }
+      responses: { '200': { description: L&P } }
+
+  # ── CLIENTES ───────────────────────────────────────────────────────────────
+  /clientes:
+    get:
+      tags: [Clientes]
+      summary: Listar clientes
+      parameters:
+        - { name: pesquisa, in: query, schema: { type: string } }
+        - { name: limite, in: query, schema: { type: integer, maximum: 100 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses: { '200': { description: Lista paginada } }
+    post:
+      tags: [Clientes]
+      summary: Criar cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome]
+              properties:
+                nome: { type: string }
+                nif: { type: string }
+                email: { type: string, format: email }
+                telefone: { type: string }
+                endereco: { type: string }
+                observacoes: { type: string }
+                limiteCredito: { type: number }
+                moeda: { $ref: '#/components/schemas/Moeda' }
+      responses: { '201': { description: Cliente criado } }
+
+  /clientes/{id}:
+    get:
+      tags: [Clientes]
+      summary: Obter cliente
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Cliente } }
+    put:
+      tags: [Clientes]
+      summary: Actualizar cliente
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Actualizado } }
+    delete:
+      tags: [Clientes]
+      summary: Eliminar cliente (soft delete)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '204': { description: Eliminado } }
+
+  /clientes/{id}/historico:
+    get:
+      tags: [Clientes]
+      summary: Histórico de interacções
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Histórico } }
+
+  # ── STOCK ──────────────────────────────────────────────────────────────────
+  /stock/produtos:
+    get:
+      tags: [Stock]
+      summary: Listar produtos
+      responses: { '200': { description: Lista } }
+    post:
+      tags: [Stock]
+      summary: Criar produto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome, codigo, precoCusto, precoVenda, unidade]
+              properties:
+                nome: { type: string }
+                codigo: { type: string }
+                descricao: { type: string }
+                categoria: { type: string }
+                precoCusto: { type: number }
+                precoVenda: { type: number }
+                moeda: { $ref: '#/components/schemas/Moeda' }
+                unidade: { type: string, example: un }
+                stockActual: { type: integer }
+                stockMinimo: { type: integer }
+      responses: { '201': { description: Criado } }
+
+  /stock/produtos/{id}:
+    put:
+      tags: [Stock]
+      summary: Actualizar produto
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Actualizado } }
+
+  /stock/movimentos:
+    get:
+      tags: [Stock]
+      summary: Listar movimentos
+      parameters:
+        - { name: produtoId, in: query, schema: { type: string } }
+      responses: { '200': { description: Lista } }
+    post:
+      tags: [Stock]
+      summary: Registar entrada/saída
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [produtoId, tipo, quantidade, motivo]
+              properties:
+                produtoId: { type: string, format: uuid }
+                tipo: { type: string, enum: [entrada, saida] }
+                quantidade: { type: integer, minimum: 1 }
+                motivo: { type: string, enum: [compra, venda, ajuste, devolucao, perda] }
+                observacoes: { type: string }
+                data: { type: string, format: date }
+      responses: { '201': { description: Movimento registado, stock actualizado } }
+
+  /stock/relatorios/valorizacao:
+    get:
+      tags: [Stock]
+      summary: Valorização do inventário
+      responses: { '200': { description: Valorização + stock crítico } }
+
+  # ── FATURAÇÃO ──────────────────────────────────────────────────────────────
+  /faturas:
+    get:
+      tags: [Faturação]
+      summary: Listar faturas
+      parameters:
+        - { name: estado, in: query, schema: { type: string, enum: [pendente, parcial, paga, vencida, anulada] } }
+      responses: { '200': { description: Lista } }
+    post:
+      tags: [Faturação]
+      summary: Emitir fatura com numeração AGT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clienteNome, linhas]
+              properties:
+                clienteId: { type: string, format: uuid }
+                clienteNome: { type: string }
+                clienteNif: { type: string }
+                moeda: { $ref: '#/components/schemas/Moeda' }
+                dataEmissao: { type: string, format: date }
+                dataVencimento: { type: string, format: date }
+                linhas:
+                  type: array
+                  items:
+                    type: object
+                    required: [descricao, quantidade, precoUnitario]
+                    properties:
+                      descricao: { type: string }
+                      quantidade: { type: number }
+                      precoUnitario: { type: number }
+                      ivaTaxa: { type: number, default: 14 }
+                observacoes: { type: string }
+      responses:
+        '201':
+          description: Fatura emitida — formato FT YYYY/NNNNNN
+
+  /faturas/{id}:
+    get:
+      tags: [Faturação]
+      summary: Obter fatura
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Fatura } }
+
+  /faturas/{id}/pagamento:
+    post:
+      tags: [Faturação]
+      summary: Registar pagamento
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [valor, metodo]
+              properties:
+                valor: { type: number }
+                metodo: { type: string, enum: [transferencia, multicaixa, numerario, cartao, outro] }
+                referencia: { type: string }
+                data: { type: string, format: date }
+      responses: { '201': { description: Pagamento registado } }
+
+  /faturas/{id}/pdf:
+    get:
+      tags: [Faturação]
+      summary: Gerar PDF da fatura
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200':
+          description: URL pré-assinada S3 (válida 1h)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      url: { type: string, format: uri }
+                      expiresIn: { type: integer, example: 3600 }
+
+  /pagamentos/multicaixa/webhook:
+    post:
+      tags: [Faturação]
+      summary: Webhook Multicaixa Express (HMAC-SHA256)
+      security: []
+      parameters:
+        - { name: X-Multicaixa-Signature, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [empresaId, faturaId, valor, estado]
+              properties:
+                empresaId: { type: string, format: uuid }
+                faturaId: { type: string, format: uuid }
+                referencia: { type: string }
+                valor: { type: number }
+                estado: { type: string, enum: [SUCCESS, FAILED, PENDING] }
+      responses: { '200': { description: Webhook processado } }
+
+  # ── DASHBOARD ──────────────────────────────────────────────────────────────
+  /dashboard/resumo:
+    get:
+      tags: [Dashboard]
+      summary: KPIs principais (30 dias)
+      responses: { '200': { description: Resumo agregado } }
+
+  /dashboard/fluxo-caixa:
+    get:
+      tags: [Dashboard]
+      summary: Série temporal de receitas/despesas
+      parameters: [{ name: meses, in: query, schema: { type: integer, default: 6, maximum: 24 } }]
+      responses: { '200': { description: Série mensal } }
+
+  /dashboard/top-produtos:
+    get:
+      tags: [Dashboard]
+      summary: Top produtos por valor de stock
+      parameters: [{ name: limite, in: query, schema: { type: integer, default: 10 } }]
+      responses: { '200': { description: Ranking } }
+
+  /dashboard/alertas:
+    get:
+      tags: [Dashboard]
+      summary: Alertas accionáveis (faturas vencidas, stock crítico)
+      responses: { '200': { description: Lista de alertas } }
+
+  # ── SUBSCRIPTIONS ──────────────────────────────────────────────────────────
+  /planos:
+    get:
+      tags: [Subscriptions]
+      summary: Catálogo público de planos
+      security: []
+      responses: { '200': { description: Lista de planos } }
+
+  /subscricao:
+    get:
+      tags: [Subscriptions]
+      summary: Subscrição actual da empresa
+      responses: { '200': { description: Plano + estado } }
+    delete:
+      tags: [Subscriptions]
+      summary: Cancelar subscrição (admin only)
+      responses: { '200': { description: Cancelada } }
+
+  /subscricao/plano:
+    put:
+      tags: [Subscriptions]
+      summary: Alterar plano (upgrade/downgrade, admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plano]
+              properties:
+                plano: { $ref: '#/components/schemas/Plano' }
+                motivo: { type: string }
+      responses: { '200': { description: Plano alterado } }
+
+  /subscricao/limites:
+    get:
+      tags: [Subscriptions]
+      summary: Verificar limites do plano actual
+      responses: { '200': { description: Utilizadores actuais/máximos, módulos } }

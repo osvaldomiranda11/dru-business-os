@@ -36,6 +36,8 @@ provider:
             - cognito-idp:AdminSetUserPassword
             - cognito-idp:AdminGetUser
             - cognito-idp:AdminUpdateUserAttributes
+            - cognito-idp:AdminDisableUser
+            - cognito-idp:AdminEnableUser
             - cognito-idp:InitiateAuth
           Resource: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
         - Effect: Allow
@@ -47,6 +49,7 @@ provider:
           Resource:
             - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.EmpresasTableName}
             - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.UtilizadoresTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.UtilizadoresTableName}/index/*
             - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
 
 custom:
@@ -94,6 +97,71 @@ functions:
       - http:
           path: /auth/me
           method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  listarUtilizadores:
+    handler: src/handlers/utilizadores.listar
+    description: Lista utilizadores da empresa
+    events:
+      - http:
+          path: /utilizadores
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  convidarUtilizador:
+    handler: src/handlers/utilizadores.convidar
+    description: Convida um novo utilizador para a empresa (admin only)
+    events:
+      - http:
+          path: /utilizadores
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  alterarRoleUtilizador:
+    handler: src/handlers/utilizadores.alterarRole
+    description: Altera o role de um utilizador (admin only)
+    events:
+      - http:
+          path: /utilizadores/{id}/role
+          method: PUT
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  desactivarUtilizador:
+    handler: src/handlers/utilizadores.desactivar
+    description: Desactiva um utilizador (admin only)
+    events:
+      - http:
+          path: /utilizadores/{id}
+          method: DELETE
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  reactivarUtilizador:
+    handler: src/handlers/utilizadores.reactivar
+    description: Reactiva um utilizador desactivado (admin only)
+    events:
+      - http:
+          path: /utilizadores/{id}/reactivar
+          method: POST
           cors: true
           authorizer:
             name: CognitoAuthorizer

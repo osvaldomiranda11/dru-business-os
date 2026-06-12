@@ -37,6 +37,7 @@ export interface Utilizador {
   ativo: boolean;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string;
 }
 
 export interface ReceitaFinanceira {
