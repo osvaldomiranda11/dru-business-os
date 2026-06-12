@@ -28,6 +28,7 @@ provider:
     AUDITORIA_TABLE: ${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
     FILES_BUCKET: ${cf:dru-bos-infra-${sls:stage}.FilesBucketName}
     EVENT_BUS_NAME: ${cf:dru-bos-infra-${sls:stage}.EventBusName}
+    MULTICAIXA_WEBHOOK_SECRET: ${env:MULTICAIXA_WEBHOOK_SECRET, ''}
   iam:
     role:
       statements:
@@ -61,6 +62,8 @@ custom:
     platform: node
     concurrency: 4
     packager: npm
+    loader:
+      .afm: text
 
 functions:
   emitirFatura:

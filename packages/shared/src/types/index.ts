@@ -94,6 +94,63 @@ export type CategoriaDespesa =
   | 'impostos'
   | 'outros';
 
+export type EstadoFatura = 'pendente' | 'parcial' | 'paga' | 'vencida' | 'anulada';
+
+export interface LinhaFatura {
+  descricao: string;
+  quantidade: number;
+  precoUnitario: number;
+  ivaTaxa: number;
+  subtotal: number;
+  ivaValor: number;
+  total: number;
+}
+
+export interface Fatura {
+  PK: string;
+  SK: string;
+  GSI1PK: string;
+  GSI1SK: string;
+  id: string;
+  empresaId: string;
+  numero: string;
+  ano: number;
+  sequencial: number;
+  clienteId?: string;
+  clienteNome: string;
+  clienteNif?: string;
+  moeda: Moeda;
+  estado: EstadoFatura;
+  linhas: LinhaFatura[];
+  subtotal: number;
+  totalIva: number;
+  total: number;
+  totalPago: number;
+  dataEmissao: string;
+  dataVencimento?: string;
+  observacoes?: string;
+  criadoPor: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface PagamentoFatura {
+  PK: string;
+  SK: string;
+  id: string;
+  empresaId: string;
+  faturaId: string;
+  faturaNumero: string;
+  valor: number;
+  moeda: Moeda;
+  metodo: string;
+  referencia?: string;
+  data: string;
+  registadoPor: string;
+  createdAt: string;
+}
+
 export interface RegistoAuditoria {
   PK: string;
   SK: string;
