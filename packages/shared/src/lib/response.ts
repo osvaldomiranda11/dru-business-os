@@ -1,8 +1,20 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 
+/**
+ * Headers de resposta para todos os endpoints HTTP.
+ *
+ * **CORS:** o Serverless `cors: true` apenas gera o OPTIONS preflight,
+ * não adiciona headers nas respostas reais dos Lambdas. Sem estes headers
+ * os browsers bloqueiam silenciosamente as respostas, o que aparece ao
+ * utilizador como "Email ou password incorrectos" mesmo com credenciais
+ * válidas. Mantemos `*` aqui porque a API é pública e a autorização é
+ * feita por Cognito JWT, não por Origin.
+ */
 const headers = {
   'Content-Type': 'application/json',
   'X-Powered-By': 'DRU Business OS',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Credentials': 'false',
 };
 
 export function ok<T>(data: T, statusCode = 200): APIGatewayProxyResult {
