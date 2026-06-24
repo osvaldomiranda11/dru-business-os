@@ -220,10 +220,36 @@ jobs:
       - name: Deploy — Subscriptions
         run: cd services/subscriptions && npx serverless deploy --stage prod --verbose
 
+  deploy-notificacoes:
+    name: Deploy Serviço Notificações
+    runs-on: ubuntu-latest
+    environment: production
+    needs: deploy-infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Configurar AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: af-south-1
+
+      - name: Deploy — Notificações
+        run: cd services/notificacoes && npx serverless deploy --stage prod --verbose
+
   notify:
     name: Notificação de Deploy
     runs-on: ubuntu-latest
-    needs: [deploy-auth, deploy-financeiro, deploy-clientes, deploy-stock, deploy-faturacao, deploy-dashboard, deploy-subscriptions]
+    needs: [deploy-auth, deploy-financeiro, deploy-clientes, deploy-stock, deploy-faturacao, deploy-dashboard, deploy-subscriptions, deploy-notificacoes]
     if: always()
     steps:
       - name: Resultado do deploy
@@ -234,7 +260,8 @@ jobs:
              [ "${{ needs.deploy-stock.result }}" == "success" ] && \
              [ "${{ needs.deploy-faturacao.result }}" == "success" ] && \
              [ "${{ needs.deploy-dashboard.result }}" == "success" ] && \
-             [ "${{ needs.deploy-subscriptions.result }}" == "success" ]; then
+             [ "${{ needs.deploy-subscriptions.result }}" == "success" ] && \
+             [ "${{ needs.deploy-notificacoes.result }}" == "success" ]; then
             echo "✅ Deploy de produção concluído com sucesso"
           else
             echo "❌ Deploy de produção falhou"

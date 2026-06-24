@@ -49,6 +49,9 @@ jobs:
       - name: Type check — subscriptions
         run: cd services/subscriptions && npx tsc --noEmit
 
+      - name: Type check — notificacoes
+        run: cd services/notificacoes && npx tsc --noEmit
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
