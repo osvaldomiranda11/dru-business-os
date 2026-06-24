@@ -61,6 +61,10 @@ resources:
         Value: !Ref ClientesTable
         Export:
           Name: dru-bos-${sls:stage}-clientes-table
+      DispositivosTableName:
+        Value: !Ref DispositivosTable
+        Export:
+          Name: dru-bos-${sls:stage}-dispositivos-table
       AuditoriaTableName:
         Value: !Ref AuditoriaTable
         Export:

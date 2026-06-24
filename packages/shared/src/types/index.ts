@@ -152,6 +152,23 @@ export interface PagamentoFatura {
   createdAt: string;
 }
 
+export interface Dispositivo {
+  PK: string;
+  SK: string;
+  GSI1PK: string;
+  GSI1SK: string;
+  id: string;
+  empresaId: string;
+  utilizadorId: string;
+  fcmToken: string;
+  plataforma: 'android' | 'ios' | 'web';
+  modelo?: string;
+  versaoApp?: string;
+  registadoEm: string;
+  lastSeenAt: string;
+  ttl: number;
+}
+
 export interface RegistoAuditoria {
   PK: string;
   SK: string;

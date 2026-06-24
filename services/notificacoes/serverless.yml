@@ -1,0 +1,125 @@
+service: dru-bos-notificacoes
+
+frameworkVersion: '3'
+
+plugins:
+  - serverless-esbuild
+
+provider:
+  name: aws
+  region: af-south-1
+  stage: ${opt:stage, 'dev'}
+  runtime: nodejs20.x
+  architecture: arm64
+  memorySize: 512
+  timeout: 29
+  logRetentionInDays: 30
+  tags:
+    Produto: dru-business-os
+    Servico: notificacoes
+    Ambiente: ${sls:stage}
+  environment:
+    NODE_ENV: ${sls:stage}
+    SERVICE_NAME: dru-bos-notificacoes
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    COGNITO_USER_POOL_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolId}
+    COGNITO_CLIENT_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolClientId}
+    DISPOSITIVOS_TABLE: ${cf:dru-bos-infra-${sls:stage}.DispositivosTableName}
+    UTILIZADORES_TABLE: ${cf:dru-bos-infra-${sls:stage}.UtilizadoresTableName}
+    AUDITORIA_TABLE: ${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+    FIREBASE_SECRET_NAME: dru-bos-firebase-admin-sdk-${sls:stage}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:DeleteItem
+            - dynamodb:UpdateItem
+            - dynamodb:Query
+          Resource:
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.DispositivosTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.DispositivosTableName}/index/*
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.UtilizadoresTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+        - Effect: Allow
+          Action:
+            - secretsmanager:GetSecretValue
+          Resource:
+            - arn:aws:secretsmanager:af-south-1:*:secret:dru-bos-firebase-admin-sdk-${sls:stage}*
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    concurrency: 4
+    packager: npm
+    external:
+      - firebase-admin
+
+functions:
+  registarDispositivo:
+    handler: src/handlers/dispositivos.registar
+    description: Regista FCM token do dispositivo Android do utilizador
+    events:
+      - http:
+          path: /dispositivos
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  removerDispositivo:
+    handler: src/handlers/dispositivos.remover
+    description: Remove FCM token (logout ou desinstalacao)
+    events:
+      - http:
+          path: /dispositivos/{deviceId}
+          method: DELETE
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  enviarFaturaEmitida:
+    handler: src/handlers/enviar.faturaEmitida
+    description: Envia push aos admins quando uma fatura e emitida
+    memorySize: 1024
+    timeout: 60
+    events:
+      - eventBridge:
+          eventBus: ${cf:dru-bos-infra-${sls:stage}.EventBusArn}
+          pattern:
+            source: [dru-bos.faturacao]
+            detail-type: [FaturaEmitida]
+
+  enviarPagamentoRegistado:
+    handler: src/handlers/enviar.pagamentoRegistado
+    description: Envia push aos admins quando um pagamento e confirmado
+    memorySize: 1024
+    timeout: 60
+    events:
+      - eventBridge:
+          eventBus: ${cf:dru-bos-infra-${sls:stage}.EventBusArn}
+          pattern:
+            source: [dru-bos.faturacao]
+            detail-type: [PagamentoRegistado]
+
+  enviarAlertaStock:
+    handler: src/handlers/enviar.alertaStock
+    description: Envia push aos admins quando stock fica critico
+    memorySize: 1024
+    timeout: 60
+    events:
+      - eventBridge:
+          eventBus: ${cf:dru-bos-infra-${sls:stage}.EventBusArn}
+          pattern:
+            source: [dru-bos.stock]
+            detail-type: [AlertaStockMinimo]
