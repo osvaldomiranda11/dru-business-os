@@ -69,6 +69,15 @@ resources:
         Value: !Ref AuditoriaTable
         Export:
           Name: dru-bos-${sls:stage}-auditoria-table
+      DocumentosTableName:
+        Value: !Ref DocumentosTable
+        Export:
+          Name: dru-bos-${sls:stage}-documentos-table
+
+      DocumentosTableArn:
+        Value: !GetAtt DocumentosTable.Arn
+        Export:
+          Name: dru-bos-${sls:stage}-documentos-table-ar
       # S3
       FilesBucketName:
         Value: !Ref FilesBucket
