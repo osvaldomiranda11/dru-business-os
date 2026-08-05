@@ -1,0 +1,292 @@
+service: dru-bos-documentos
+
+frameworkVersion: '3'
+
+plugins:
+  - serverless-esbuild
+
+provider:
+  name: aws
+  region: af-south-1
+  stage: ${opt:stage, 'dev'}
+  runtime: nodejs20.x
+  architecture: arm64
+  memorySize: 256
+  timeout: 29
+  logRetentionInDays: 30
+  tags:
+    Produto: dru-business-os
+    Servico: documentos
+    Ambiente: ${sls:stage}
+  environment:
+    NODE_ENV: ${sls:stage}
+    SERVICE_NAME: dru-bos-documentos
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    COGNITO_USER_POOL_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolId}
+    COGNITO_CLIENT_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolClientId}
+    DOCUMENTOS_TABLE: ${cf:dru-bos-infra-${sls:stage}.DocumentosTableName}
+    AUDITORIA_TABLE: ${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+    FILES_BUCKET: ${cf:dru-bos-infra-${sls:stage}.FilesBucketName}
+    EVENT_BUS_NAME: ${cf:dru-bos-infra-${sls:stage}.EventBusName}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:BatchGetItem
+          Resource:
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.DocumentosTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.DocumentosTableName}/index/*
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:DeleteObject
+            - s3:GeneratePresignedUrl
+          Resource: arn:aws:s3:::${cf:dru-bos-infra-${sls:stage}.FilesBucketName}/documentos/*
+        - Effect: Allow
+          Action:
+            - events:PutEvents
+          Resource: ${cf:dru-bos-infra-${sls:stage}.EventBusArn}
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    concurrency: 4
+    packager: npm
+
+functions:
+  # ── Pastas ──────────────────────────────────────────────────────────────
+  criarPasta:
+    handler: src/handlers/pastas.criar
+    description: Cria uma pasta no repositório documental
+    events:
+      - http:
+          path: /documentos/pastas
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  listarPastas:
+    handler: src/handlers/pastas.listar
+    description: Lista pastas (filtro por pasta-pai)
+    events:
+      - http:
+          path: /documentos/pastas
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  actualizarPasta:
+    handler: src/handlers/pastas.actualizar
+    description: Renomeia ou move uma pasta
+    events:
+      - http:
+          path: /documentos/pastas/{id}
+          method: PUT
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  eliminarPasta:
+    handler: src/handlers/pastas.eliminar
+    description: Elimina uma pasta vazia (soft delete)
+    events:
+      - http:
+          path: /documentos/pastas/{id}
+          method: DELETE
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  # ── Documentos ──────────────────────────────────────────────────────────
+  solicitarUploadUrl:
+    handler: src/handlers/documentos.solicitarUploadUrl
+    description: Gera URL assinada para upload directo a S3
+    events:
+      - http:
+          path: /documentos/upload-url
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  criarDocumento:
+    handler: src/handlers/documentos.criar
+    description: Regista metadata do documento após upload confirmado (versão 1)
+    events:
+      - http:
+          path: /documentos
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  listarDocumentos:
+    handler: src/handlers/documentos.listar
+    description: Lista documentos com filtros por pasta, categoria e pesquisa
+    events:
+      - http:
+          path: /documentos
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  obterDocumento:
+    handler: src/handlers/documentos.obter
+    description: Obtém detalhes do documento com URL de download da versão actual
+    events:
+      - http:
+          path: /documentos/{id}
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  actualizarDocumento:
+    handler: src/handlers/documentos.actualizar
+    description: Actualiza metadata do documento (nome, categoria, tags, pasta)
+    events:
+      - http:
+          path: /documentos/{id}
+          method: PUT
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  eliminarDocumento:
+    handler: src/handlers/documentos.eliminar
+    description: Elimina (soft delete) um documento
+    events:
+      - http:
+          path: /documentos/{id}
+          method: DELETE
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  # ── Versões ─────────────────────────────────────────────────────────────
+  solicitarUploadUrlVersao:
+    handler: src/handlers/versoes.solicitarUploadUrl
+    description: Gera URL assinada para upload de nova versão do documento
+    events:
+      - http:
+          path: /documentos/{id}/versoes/upload-url
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  criarVersao:
+    handler: src/handlers/versoes.criar
+    description: Regista nova versão do documento após upload confirmado
+    events:
+      - http:
+          path: /documentos/{id}/versoes
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  listarVersoes:
+    handler: src/handlers/versoes.listar
+    description: Lista o histórico de versões de um documento
+    events:
+      - http:
+          path: /documentos/{id}/versoes
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  obterVersao:
+    handler: src/handlers/versoes.obter
+    description: Obtém URL de download de uma versão específica
+    events:
+      - http:
+          path: /documentos/{id}/versoes/{numero}
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  # ── Ligações a entidades ────────────────────────────────────────────────
+  ligarDocumento:
+    handler: src/handlers/ligacoes.ligar
+    description: Liga um documento a uma entidade (cliente, fatura ou produto)
+    events:
+      - http:
+          path: /documentos/{id}/ligar
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  desligarDocumento:
+    handler: src/handlers/ligacoes.desligar
+    description: Remove a ligação entre um documento e uma entidade
+    events:
+      - http:
+          path: /documentos/{id}/ligar/{tipoEntidade}/{entidadeId}
+          method: DELETE
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  listarDocumentosDaEntidade:
+    handler: src/handlers/ligacoes.listarPorEntidade
+    description: Lista documentos ligados a uma entidade específica
+    events:
+      - http:
+          path: /documentos/entidade/{tipoEntidade}/{entidadeId}
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
