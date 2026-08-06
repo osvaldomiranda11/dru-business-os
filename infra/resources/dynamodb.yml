@@ -299,7 +299,7 @@ Resources:
         - Key: Produto
           Value: dru-business-os
         - Key: Ambiente
-          Value: ${sls:stage
+          Value: ${sls:stage}
 
 
   DocumentosTable:
