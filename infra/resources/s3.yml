@@ -15,6 +15,13 @@ Resources:
               SSEAlgorithm: AES256
       VersioningConfiguration:
         Status: Enabled
+      CorsConfiguration:
+          CorsRules:
+            - AllowedMethods: [GET, PUT, HEAD]
+              AllowedOrigins: ['*']
+              AllowedHeaders: ['*']
+              ExposedHeaders: [ETag]
+              MaxAge: 300
       LifecycleConfiguration:
         Rules:
           - Id: expire-temp-uploads
