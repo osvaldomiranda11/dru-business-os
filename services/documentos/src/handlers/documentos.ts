@@ -6,6 +6,7 @@ import {
   TransactWriteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
@@ -28,7 +29,9 @@ import type { AuthContext } from '@dru-bos/shared';
 import { FILES_BUCKET, MIME_TYPES_ACEITES, TAMANHO_MAXIMO_BYTES, novaChaveS3 } from '../lib/util';
 
 const DOCUMENTOS_TABLE = process.env.DOCUMENTOS_TABLE!;
+const EVENT_BUS_NAME = process.env.EVENT_BUS_NAME!;
 const s3 = new S3Client({ region: 'af-south-1' });
+const eventBridge = new EventBridgeClient({ region: 'af-south-1' });
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -202,6 +205,30 @@ export const criar: APIGatewayProxyHandler = async (event) => {
     );
     await registarAuditoria(auth, 'criar', 'documento', d.documentoId, { nome: d.nome, categoria: d.categoria });
     logger.info('Documento criado', { id: d.documentoId, empresaId: auth.empresaId });
+
+    // Dispara extração de texto pesquisável em background (não bloqueia a resposta)
+    try {
+      await eventBridge.send(
+        new PutEventsCommand({
+          Entries: [{
+            EventBusName: EVENT_BUS_NAME,
+            Source: 'dru-bos.documentos',
+            DetailType: 'DocumentoCarregado',
+            Detail: JSON.stringify({
+              empresaId: auth.empresaId,
+              documentoId: d.documentoId,
+              s3Key: d.s3Key,
+              mimeType: d.mimeType,
+            }),
+          }],
+        }),
+      );
+    } catch (evtErr) {
+      // Falha a publicar o evento não deve impedir a criação do documento —
+      // fica sem texto pesquisável, mas continua utilizável.
+      logger.error('Erro ao publicar evento DocumentoCarregado', { error: String(evtErr) });
+    }
+
     return created(documento);
   } catch (err) {
     logger.error('Erro ao criar documento', { error: String(err) });
@@ -235,8 +262,8 @@ export const listar: APIGatewayProxyHandler = async (event) => {
     exprValues[':categoria'] = categoria;
   }
   if (pesquisa) {
-    filtros.push('contains(#nomeLower, :pesquisa)');
-    exprNames['#nomeLower'] = 'nome';
+    filtros.push('(contains(#nome, :pesquisa) OR contains(textoExtraidoLower, :pesquisa))');
+    exprNames['#nome'] = 'nome';
     exprValues[':pesquisa'] = pesquisa;
   }
 

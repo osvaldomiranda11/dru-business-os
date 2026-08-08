@@ -1,6 +1,7 @@
 import type { APIGatewayProxyHandler } from 'aws-lambda';
 import { QueryCommand, GetCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
@@ -22,7 +23,9 @@ import type { AuthContext } from '@dru-bos/shared';
 import { FILES_BUCKET, MIME_TYPES_ACEITES, TAMANHO_MAXIMO_BYTES, novaChaveS3, numeroVersaoFormatado } from '../lib/util';
 
 const DOCUMENTOS_TABLE = process.env.DOCUMENTOS_TABLE!;
+const EVENT_BUS_NAME = process.env.EVENT_BUS_NAME!;
 const s3 = new S3Client({ region: 'af-south-1' });
+const eventBridge = new EventBridgeClient({ region: 'af-south-1' });
 
 const SolicitarUploadVersaoSchema = z.object({
   nome: z.string().min(1).max(200),
@@ -173,6 +176,27 @@ export const criar: APIGatewayProxyHandler = async (event) => {
     );
     await registarAuditoria(auth, 'nova-versao', 'documento', id, { numero, comentario: d.comentario });
     logger.info('Nova versão de documento', { id, numero, empresaId: auth.empresaId });
+
+    try {
+      await eventBridge.send(
+        new PutEventsCommand({
+          Entries: [{
+            EventBusName: EVENT_BUS_NAME,
+            Source: 'dru-bos.documentos',
+            DetailType: 'DocumentoCarregado',
+            Detail: JSON.stringify({
+              empresaId: auth.empresaId,
+              documentoId: id,
+              s3Key: d.s3Key,
+              mimeType: d.mimeType,
+            }),
+          }],
+        }),
+      );
+    } catch (evtErr) {
+      logger.error('Erro ao publicar evento DocumentoCarregado', { error: String(evtErr) });
+    }
+
     return created(versao);
   } catch (err: unknown) {
     if ((err as { name?: string }).name === 'TransactionCanceledException') {

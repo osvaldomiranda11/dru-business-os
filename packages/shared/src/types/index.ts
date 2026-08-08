@@ -186,6 +186,84 @@ export interface RegistoAuditoria {
   createdAt: string;
 }
 
+export type CategoriaDocumento =
+  | 'contrato'
+  | 'comprovativo'
+  | 'fatura_anexo'
+  | 'ficha_tecnica'
+  | 'identificacao'
+  | 'licenca'
+  | 'outro';
+
+export type TipoEntidadeLigacao = 'cliente' | 'fatura' | 'produto';
+
+export interface Pasta {
+  PK: string;
+  SK: string;
+  id: string;
+  empresaId: string;
+  nome: string;
+  pastaPaiId?: string;
+  cor?: string;
+  criadoPor: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface Documento {
+  PK: string;
+  SK: string;
+  id: string;
+  empresaId: string;
+  nome: string;
+  descricao?: string;
+  categoria: CategoriaDocumento;
+  tags: string[];
+  pastaId?: string;
+  mimeType: string;
+  tamanho: number;
+  s3Key: string;
+  versaoAtual: number;
+  totalVersoes: number;
+  criadoPor: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+  /** Estado da extração de texto pesquisável (OCR/parse) */
+  ocrStatus?: 'pendente' | 'concluido' | 'falhou' | 'nao_suportado';
+  /** Texto extraído em minúsculas, truncado — usado só para pesquisa */
+  textoExtraidoLower?: string;
+  ocrProcessadoEm?: string;
+}
+
+export interface VersaoDocumento {
+  PK: string;
+  SK: string;
+  id: string;
+  empresaId: string;
+  documentoId: string;
+  numero: number;
+  s3Key: string;
+  mimeType: string;
+  tamanho: number;
+  comentario?: string;
+  enviadoPor: string;
+  createdAt: string;
+}
+
+export interface LigacaoDocumento {
+  PK: string;
+  SK: string;
+  empresaId: string;
+  documentoId: string;
+  tipoEntidade: TipoEntidadeLigacao;
+  entidadeId: string;
+  entidadeNome?: string;
+  criadoPor: string;
+  createdAt: string;
+}
+
 export interface JwtClaims {
   sub: string;
   email: string;

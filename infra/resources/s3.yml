@@ -16,12 +16,12 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
       CorsConfiguration:
-          CorsRules:
-            - AllowedMethods: [GET, PUT, HEAD]
-              AllowedOrigins: ['*']
-              AllowedHeaders: ['*']
-              ExposedHeaders: [ETag]
-              MaxAge: 300
+        CorsRules:
+          - AllowedMethods: [GET, PUT, HEAD]
+            AllowedOrigins: ['*']
+            AllowedHeaders: ['*']
+            ExposedHeaders: [ETag]
+            MaxAge: 3000
       LifecycleConfiguration:
         Rules:
           - Id: expire-temp-uploads

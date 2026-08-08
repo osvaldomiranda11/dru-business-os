@@ -54,6 +54,10 @@ provider:
           Action:
             - events:PutEvents
           Resource: ${cf:dru-bos-infra-${sls:stage}.EventBusArn}
+        - Effect: Allow
+          Action:
+            - textract:DetectDocumentText
+          Resource: '*'
 
 custom:
   esbuild:
@@ -290,3 +294,16 @@ functions:
             name: CognitoAuthorizer
             type: COGNITO_USER_POOLS
             arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  # ── Processamento assíncrono ────────────────────────────────────────────
+  processarOcr:
+    handler: src/handlers/ocr.processar
+    description: Extrai texto pesquisável (OCR/parse) ao carregar um documento ou nova versão
+    memorySize: 1024
+    timeout: 90
+    events:
+      - eventBridge:
+          eventBus: ${cf:dru-bos-infra-${sls:stage}.EventBusArn}
+          pattern:
+            source: [dru-bos.documentos]
+            detail-type: [DocumentoCarregado]
