@@ -318,3 +318,16 @@ functions:
       - schedule:
           rate: cron(0 6 * * ? *) # 06:00 UTC (07:00 em Angola, WAT) todos os dias
           enabled: true
+
+  saudeDocumentos:
+    handler: src/handlers/saude.resumo
+    description: Painel DDI — contagens de documentos regulares, a vencer e expirados
+    events:
+      - http:
+          path: /documentos/saude
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}

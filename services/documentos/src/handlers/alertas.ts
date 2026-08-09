@@ -7,8 +7,8 @@ const DOCUMENTOS_TABLE = process.env.DOCUMENTOS_TABLE!;
 const EVENT_BUS_NAME = process.env.EVENT_BUS_NAME!;
 const eventBridge = new EventBridgeClient({ region: 'af-south-1' });
 
-/** Avisa quando faltarem este número de dias ou menos (inclui já expirados) */
-const DIAS_AVISO = 30;
+/** Avisa quando faltarem este número de dias ou menos (inclui já expirados) — alinhado com o painel DDI */
+const DIAS_AVISO = 60;
 
 /**
  * Corre 1x/dia (ver `schedule` no serverless.yml). Varre TODAS as empresas

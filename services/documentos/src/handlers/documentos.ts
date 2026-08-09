@@ -252,17 +252,20 @@ export const listar: APIGatewayProxyHandler = async (event) => {
   const pesquisa = qs.pesquisa?.trim().toLowerCase();
   const categoria = qs.categoria;
   const pastaId = qs.pastaId;
+  const estadoValidade = qs.estadoValidade; // 'a_vencer' | 'expirado'
   const cursor = qs.cursor;
 
   const filtros: string[] = ['attribute_not_exists(deletedAt)'];
   const exprValues: Record<string, unknown> = { ':pk': `empresa#${auth.empresaId}`, ':prefix': 'documento#' };
   const exprNames: Record<string, string> = {};
 
-  if (pesquisa) {
-    // Ao pesquisar, ignora o escopo da pasta actual — o utilizador espera
-    // encontrar o documento onde quer que esteja, não só na pasta aberta.
-    filtros.push('(contains(nomeLower, :pesquisa) OR contains(textoExtraidoLower, :pesquisa))');
-    exprValues[':pesquisa'] = pesquisa;
+  if (pesquisa || estadoValidade === 'expirado' || estadoValidade === 'a_vencer') {
+    // Pesquisa ou filtro de validade ignoram o escopo da pasta actual —
+    // ambos são vistas globais da empresa, não da pasta aberta.
+    if (pesquisa) {
+      filtros.push('(contains(nomeLower, :pesquisa) OR contains(textoExtraidoLower, :pesquisa))');
+      exprValues[':pesquisa'] = pesquisa;
+    }
   } else if (pastaId) {
     filtros.push('pastaId = :pastaId');
     exprValues[':pastaId'] = pastaId;
@@ -272,6 +275,22 @@ export const listar: APIGatewayProxyHandler = async (event) => {
   if (categoria) {
     filtros.push('categoria = :categoria');
     exprValues[':categoria'] = categoria;
+  }
+  if (estadoValidade === 'expirado' || estadoValidade === 'a_vencer') {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const hojeStr = hoje.toISOString().slice(0, 10);
+
+    if (estadoValidade === 'expirado') {
+      filtros.push('attribute_exists(dataValidade) AND dataValidade < :hoje');
+      exprValues[':hoje'] = hojeStr;
+    } else {
+      const limiteData = new Date(hoje);
+      limiteData.setDate(limiteData.getDate() + 60);
+      filtros.push('attribute_exists(dataValidade) AND dataValidade BETWEEN :hoje AND :limiteVencer');
+      exprValues[':hoje'] = hojeStr;
+      exprValues[':limiteVencer'] = limiteData.toISOString().slice(0, 10);
+    }
   }
 
   try {
