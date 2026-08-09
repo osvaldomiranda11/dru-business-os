@@ -40,6 +40,13 @@ async function extrairTextoPdf(key: string): Promise<string | null> {
   return resultado.text?.trim() || null;
 }
 
+async function extrairTextoDocx(key: string): Promise<string | null> {
+  const mammoth = await import('mammoth');
+  const bytes = await lerBytesS3(key);
+  const resultado = await mammoth.extractRawText({ buffer: bytes });
+  return resultado.value?.trim() || null;
+}
+
 async function extrairTextoImagem(key: string): Promise<string | null> {
   const resultado = await textract.send(
     new DetectDocumentTextCommand({
@@ -65,7 +72,15 @@ export const processar: EventBridgeHandler<'DocumentoCarregado', DocumentoCarreg
     if (mimeType === 'application/pdf') {
       texto = await extrairTextoPdf(s3Key);
       status = 'concluido';
-    } else if (mimeType.startsWith('image/')) {
+    } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      // .docx (formato moderno, baseado em XML). O .doc antigo (binário)
+      // não é suportado pela biblioteca — fica como "não suportado".
+      texto = await extrairTextoDocx(s3Key);
+      status = 'concluido';
+    } else if (mimeType === 'image/jpeg' || mimeType === 'image/png') {
+      // Textract síncrono só suporta JPEG e PNG para imagens — webp/gif/etc
+      // falhariam sempre, por isso ficam marcados como não suportados
+      // directamente, em vez de tentar e falhar.
       texto = await extrairTextoImagem(s3Key);
       status = 'concluido';
     } else {

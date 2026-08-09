@@ -166,6 +166,7 @@ export const criar: APIGatewayProxyHandler = async (event) => {
     id: d.documentoId,
     empresaId: auth.empresaId,
     nome: d.nome,
+    nomeLower: d.nome.toLowerCase(),
     descricao: d.descricao,
     categoria: d.categoria,
     tags: d.tags,
@@ -262,8 +263,7 @@ export const listar: APIGatewayProxyHandler = async (event) => {
     exprValues[':categoria'] = categoria;
   }
   if (pesquisa) {
-    filtros.push('(contains(#nome, :pesquisa) OR contains(textoExtraidoLower, :pesquisa))');
-    exprNames['#nome'] = 'nome';
+    filtros.push('(contains(nomeLower, :pesquisa) OR contains(textoExtraidoLower, :pesquisa))');
     exprValues[':pesquisa'] = pesquisa;
   }
 
@@ -348,16 +348,22 @@ export const actualizar: APIGatewayProxyHandler = async (event) => {
 
   const now = new Date().toISOString();
   const campos = Object.keys(parsed.data) as Array<keyof typeof parsed.data>;
-  const updateExpr = ['updatedAt = :updatedAt', ...campos.map((c) => `${c} = :${c}`)].join(', ');
+  const updateExpr = ['updatedAt = :updatedAt', ...campos.map((c) => `${c} = :${c}`)];
   const exprValues: Record<string, unknown> = { ':updatedAt': now };
   for (const c of campos) exprValues[`:${c}`] = parsed.data[c];
+
+  // Mantém nomeLower sincronizado com nome — é o campo usado na pesquisa
+  if (parsed.data.nome !== undefined) {
+    updateExpr.push('nomeLower = :nomeLower');
+    exprValues[':nomeLower'] = parsed.data.nome.toLowerCase();
+  }
 
   try {
     await db.send(
       new UpdateCommand({
         TableName: DOCUMENTOS_TABLE,
         Key: { PK: `empresa#${auth.empresaId}`, SK: `documento#${id}` },
-        UpdateExpression: `SET ${updateExpr}`,
+        UpdateExpression: `SET ${updateExpr.join(', ')}`,
         ConditionExpression: 'attribute_exists(PK) AND attribute_not_exists(deletedAt)',
         ExpressionAttributeValues: exprValues,
       }),

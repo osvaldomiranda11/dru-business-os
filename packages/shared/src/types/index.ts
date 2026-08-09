@@ -217,6 +217,7 @@ export interface Documento {
   id: string;
   empresaId: string;
   nome: string;
+  nomeLower?: string;
   descricao?: string;
   categoria: CategoriaDocumento;
   tags: string[];
