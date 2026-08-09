@@ -236,6 +236,10 @@ export interface Documento {
   /** Texto extraído em minúsculas, truncado — usado só para pesquisa */
   textoExtraidoLower?: string;
   ocrProcessadoEm?: string;
+  /** Data de validade (ISO 8601, YYYY-MM-DD) — licenças, contratos, identificação */
+  dataValidade?: string;
+  /** true assim que um alerta de expiração já foi enviado, evita repetir notificações */
+  alertaExpiracaoEnviado?: boolean;
 }
 
 export interface VersaoDocumento {

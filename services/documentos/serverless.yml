@@ -39,6 +39,7 @@ provider:
             - dynamodb:DeleteItem
             - dynamodb:Query
             - dynamodb:BatchGetItem
+            - dynamodb:Scan
           Resource:
             - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.DocumentosTableName}
             - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.DocumentosTableName}/index/*
@@ -307,3 +308,13 @@ functions:
           pattern:
             source: [dru-bos.documentos]
             detail-type: [DocumentoCarregado]
+
+  verificarExpiracoes:
+    handler: src/handlers/alertas.verificarExpiracoes
+    description: Verifica diariamente documentos a expirar (licenças, contratos, identificação) e publica alertas
+    memorySize: 256
+    timeout: 120
+    events:
+      - schedule:
+          rate: cron(0 6 * * ? *) # 06:00 UTC (07:00 em Angola, WAT) todos os dias
+          enabled: true

@@ -123,3 +123,15 @@ functions:
           pattern:
             source: [dru-bos.stock]
             detail-type: [AlertaStockMinimo]
+
+  enviarAlertaDocumentoAExpirar:
+    handler: src/handlers/enviar.documentoAExpirar
+    description: Envia push aos admins quando um documento (licenca, contrato, etc) esta perto de expirar
+    memorySize: 1024
+    timeout: 60
+    events:
+      - eventBridge:
+          eventBus: ${cf:dru-bos-infra-${sls:stage}.EventBusArn}
+          pattern:
+            source: [dru-bos.documentos]
+            detail-type: [DocumentoAExpirar]

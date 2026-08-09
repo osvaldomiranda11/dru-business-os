@@ -35,6 +35,15 @@ interface DetailAlertaStock {
   stockMinimo: number;
 }
 
+interface DetailDocumentoAExpirar {
+  empresaId: string;
+  documentoId: string;
+  nome: string;
+  categoria: string;
+  dataValidade: string;
+  diasRestantes: number;
+}
+
 const aoa = (v: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(v);
 
@@ -83,4 +92,34 @@ export const alertaStock: EventBridgeHandler<'AlertaStockMinimo', DetailAlertaSt
     `${d.nome}: ${d.stockActual} (mínimo ${d.stockMinimo})`,
     { tipo: 'stock', produtoId: d.produtoId },
   );
+};
+
+const NOMES_CATEGORIA: Record<string, string> = {
+  contrato: 'Contrato',
+  comprovativo: 'Comprovativo',
+  fatura_anexo: 'Anexo de fatura',
+  ficha_tecnica: 'Ficha técnica',
+  identificacao: 'Identificação',
+  licenca: 'Licença',
+  outro: 'Documento',
+};
+
+export const documentoAExpirar: EventBridgeHandler<'DocumentoAExpirar', DetailDocumentoAExpirar, void> = async (
+  event,
+) => {
+  const d = event.detail;
+  const categoria = NOMES_CATEGORIA[d.categoria] ?? 'Documento';
+  const titulo = d.diasRestantes < 0 ? `${categoria} expirado` : `${categoria} a expirar`;
+  const corpo =
+    d.diasRestantes < 0
+      ? `${d.nome} expirou há ${Math.abs(d.diasRestantes)} dia(s)`
+      : d.diasRestantes === 0
+        ? `${d.nome} expira hoje`
+        : `${d.nome} expira em ${d.diasRestantes} dia(s) (${d.dataValidade})`;
+
+  await notificarAdmins(d.empresaId, titulo, corpo, {
+    tipo: 'documento',
+    documentoId: d.documentoId,
+    categoria: d.categoria,
+  });
 };

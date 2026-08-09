@@ -51,6 +51,8 @@ const SolicitarUploadSchema = z.object({
   tamanho: z.number().int().positive(),
 });
 
+const DataValidadeSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida (use AAAA-MM-DD)');
+
 const CriarDocumentoSchema = z.object({
   documentoId: z.string().uuid(),
   s3Key: z.string(),
@@ -61,6 +63,7 @@ const CriarDocumentoSchema = z.object({
   pastaId: z.string().uuid().optional(),
   mimeType: z.string(),
   tamanho: z.number().int().positive(),
+  dataValidade: DataValidadeSchema.optional(),
 });
 
 const ActualizarDocumentoSchema = z.object({
@@ -69,6 +72,7 @@ const ActualizarDocumentoSchema = z.object({
   categoria: CategoriaSchema.optional(),
   tags: z.array(z.string().max(30)).max(15).optional(),
   pastaId: z.string().uuid().nullable().optional(),
+  dataValidade: DataValidadeSchema.nullable().optional(),
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -176,6 +180,8 @@ export const criar: APIGatewayProxyHandler = async (event) => {
     s3Key: d.s3Key,
     versaoAtual: 1,
     totalVersoes: 1,
+    dataValidade: d.dataValidade,
+    alertaExpiracaoEnviado: false,
     criadoPor: auth.userId,
     createdAt: now,
     updatedAt: now,
@@ -252,7 +258,12 @@ export const listar: APIGatewayProxyHandler = async (event) => {
   const exprValues: Record<string, unknown> = { ':pk': `empresa#${auth.empresaId}`, ':prefix': 'documento#' };
   const exprNames: Record<string, string> = {};
 
-  if (pastaId) {
+  if (pesquisa) {
+    // Ao pesquisar, ignora o escopo da pasta actual — o utilizador espera
+    // encontrar o documento onde quer que esteja, não só na pasta aberta.
+    filtros.push('(contains(nomeLower, :pesquisa) OR contains(textoExtraidoLower, :pesquisa))');
+    exprValues[':pesquisa'] = pesquisa;
+  } else if (pastaId) {
     filtros.push('pastaId = :pastaId');
     exprValues[':pastaId'] = pastaId;
   } else if (qs.pastaId === '') {
@@ -261,10 +272,6 @@ export const listar: APIGatewayProxyHandler = async (event) => {
   if (categoria) {
     filtros.push('categoria = :categoria');
     exprValues[':categoria'] = categoria;
-  }
-  if (pesquisa) {
-    filtros.push('(contains(nomeLower, :pesquisa) OR contains(textoExtraidoLower, :pesquisa))');
-    exprValues[':pesquisa'] = pesquisa;
   }
 
   try {
@@ -283,7 +290,18 @@ export const listar: APIGatewayProxyHandler = async (event) => {
     );
 
     // SK de documentos é `documento#{id}` (sem sufixo #versao#), versões têm SK mais longo
-    const items = (result.Items ?? []).filter((i) => !String(i.SK).includes('#versao#'));
+    let items = (result.Items ?? []).filter((i) => !String(i.SK).includes('#versao#'));
+
+    // Prioriza correspondências pelo nome sobre correspondências só no
+    // conteúdo (OCR) — evita a frustração de pesquisar um nome exacto e
+    // ver resultados de conteúdo à frente.
+    if (pesquisa) {
+      items = items.sort((a, b) => {
+        const aNome = String(a.nomeLower ?? '').includes(pesquisa) ? 0 : 1;
+        const bNome = String(b.nomeLower ?? '').includes(pesquisa) ? 0 : 1;
+        return aNome - bNome; // sort é estável — mantém a ordem relativa dentro do grupo
+      });
+    }
 
     const nextCursor = result.LastEvaluatedKey
       ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
@@ -347,8 +365,11 @@ export const actualizar: APIGatewayProxyHandler = async (event) => {
   }
 
   const now = new Date().toISOString();
-  const campos = Object.keys(parsed.data) as Array<keyof typeof parsed.data>;
+  const campos = (Object.keys(parsed.data) as Array<keyof typeof parsed.data>).filter(
+    (c) => c !== 'dataValidade',
+  );
   const updateExpr = ['updatedAt = :updatedAt', ...campos.map((c) => `${c} = :${c}`)];
+  const removeExpr: string[] = [];
   const exprValues: Record<string, unknown> = { ':updatedAt': now };
   for (const c of campos) exprValues[`:${c}`] = parsed.data[c];
 
@@ -358,12 +379,29 @@ export const actualizar: APIGatewayProxyHandler = async (event) => {
     exprValues[':nomeLower'] = parsed.data.nome.toLowerCase();
   }
 
+  // dataValidade é tratado à parte: null remove o campo (documento passa a
+  // não ter validade), e qualquer alteração reinicia o alerta de expiração
+  // para não perder o aviso de uma nova data.
+  if ('dataValidade' in parsed.data) {
+    if (parsed.data.dataValidade) {
+      updateExpr.push('dataValidade = :dataValidade', 'alertaExpiracaoEnviado = :falso');
+      exprValues[':dataValidade'] = parsed.data.dataValidade;
+      exprValues[':falso'] = false;
+    } else {
+      removeExpr.push('dataValidade', 'alertaExpiracaoEnviado');
+    }
+  }
+
+  const updateExpression = `SET ${updateExpr.join(', ')}${
+    removeExpr.length > 0 ? ` REMOVE ${removeExpr.join(', ')}` : ''
+  }`;
+
   try {
     await db.send(
       new UpdateCommand({
         TableName: DOCUMENTOS_TABLE,
         Key: { PK: `empresa#${auth.empresaId}`, SK: `documento#${id}` },
-        UpdateExpression: `SET ${updateExpr.join(', ')}`,
+        UpdateExpression: updateExpression,
         ConditionExpression: 'attribute_exists(PK) AND attribute_not_exists(deletedAt)',
         ExpressionAttributeValues: exprValues,
       }),
