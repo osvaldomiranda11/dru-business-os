@@ -3,6 +3,7 @@ import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { TextractClient, DetectDocumentTextCommand } from '@aws-sdk/client-textract';
 import { db, logger } from '@dru-bos/shared';
+import { detectarDataValidade } from '../lib/detectarValidade';
 
 const DOCUMENTOS_TABLE = process.env.DOCUMENTOS_TABLE!;
 const FILES_BUCKET = process.env.FILES_BUCKET!;
@@ -121,5 +122,38 @@ export const processar: EventBridgeHandler<'DocumentoCarregado', DocumentoCarreg
     }
     logger.error('Erro ao gravar resultado do OCR', { error: String(err), documentoId });
     throw err; // deixa o EventBridge tentar de novo (falha de escrita, não de extração)
+  }
+
+  // Sugestão de data de validade (DDI) — tenta detectar no texto extraído.
+  // Nunca aplica automaticamente: só sugere, e só se o documento ainda não
+  // tiver uma validade definida nem uma sugestão já recusada pelo utilizador.
+  if (texto) {
+    const deteccao = detectarDataValidade(texto);
+    if (deteccao) {
+      try {
+        await db.send(
+          new UpdateCommand({
+            TableName: DOCUMENTOS_TABLE,
+            Key: { PK: `empresa#${empresaId}`, SK: `documento#${documentoId}` },
+            ConditionExpression:
+              'attribute_exists(PK) AND attribute_not_exists(deletedAt) ' +
+              'AND attribute_not_exists(dataValidade) AND attribute_not_exists(dataValidadeSugeridaIgnorada)',
+            UpdateExpression:
+              'SET dataValidadeSugerida = :data, dataValidadeSugeridaTexto = :contexto',
+            ExpressionAttributeValues: {
+              ':data': deteccao.data,
+              ':contexto': deteccao.contexto,
+            },
+          }),
+        );
+        logger.info('Data de validade sugerida', { documentoId, data: deteccao.data });
+      } catch (err: unknown) {
+        if ((err as { name?: string }).name !== 'ConditionalCheckFailedException') {
+          logger.error('Erro ao gravar sugestão de validade', { error: String(err), documentoId });
+        }
+        // ConditionalCheckFailedException é esperado e silencioso: já tem
+        // data definida, ou já foi ignorada antes — não sugere de novo.
+      }
+    }
   }
 };

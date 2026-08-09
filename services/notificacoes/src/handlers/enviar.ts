@@ -35,6 +35,8 @@ interface DetailAlertaStock {
   stockMinimo: number;
 }
 
+type NivelAlerta = 'aviso' | 'atencao' | 'critico' | 'expirado';
+
 interface DetailDocumentoAExpirar {
   empresaId: string;
   documentoId: string;
@@ -42,6 +44,15 @@ interface DetailDocumentoAExpirar {
   categoria: string;
   dataValidade: string;
   diasRestantes: number;
+  nivel: NivelAlerta;
+}
+
+interface DetailDocumentoRenovado {
+  empresaId: string;
+  documentoId: string;
+  nome: string;
+  categoria: string;
+  dataValidade: string;
 }
 
 const aoa = (v: number) =>
@@ -109,17 +120,60 @@ export const documentoAExpirar: EventBridgeHandler<'DocumentoAExpirar', DetailDo
 ) => {
   const d = event.detail;
   const categoria = NOMES_CATEGORIA[d.categoria] ?? 'Documento';
-  const titulo = d.diasRestantes < 0 ? `${categoria} expirado` : `${categoria} a expirar`;
-  const corpo =
-    d.diasRestantes < 0
-      ? `${d.nome} expirou há ${Math.abs(d.diasRestantes)} dia(s)`
-      : d.diasRestantes === 0
-        ? `${d.nome} expira hoje`
-        : `${d.nome} expira em ${d.diasRestantes} dia(s) (${d.dataValidade})`;
+  const dataFormatada = new Date(d.dataValidade).toLocaleDateString('pt-PT');
 
-  await notificarAdmins(d.empresaId, titulo, corpo, {
+  // Biblioteca de mensagens por nível — motor de regras determinístico,
+  // sem IA: o nível já vem calculado (dru-bos.documentos), aqui só
+  // traduzimos o facto estruturado numa mensagem natural.
+  const { emoji, titulo, corpo } = (() => {
+    switch (d.nivel) {
+      case 'expirado':
+        return {
+          emoji: '🔴',
+          titulo: `${categoria} expirado`,
+          corpo: `A sua ${categoria.toLowerCase()} "${d.nome}" expirou há ${Math.abs(d.diasRestantes)} dia(s). Regularize a situação assim que possível.`,
+        };
+      case 'critico':
+        return {
+          emoji: '🔴',
+          titulo: `Urgente: ${categoria.toLowerCase()} a expirar`,
+          corpo: `A sua ${categoria.toLowerCase()} "${d.nome}" expira em ${d.diasRestantes} dia(s). Tome já as medidas necessárias.`,
+        };
+      case 'atencao':
+        return {
+          emoji: '🟠',
+          titulo: `Atenção: ${categoria.toLowerCase()} a expirar`,
+          corpo: `A sua ${categoria.toLowerCase()} "${d.nome}" expira em ${d.diasRestantes} dia(s) (${dataFormatada}). Verifique se a renovação já foi iniciada.`,
+        };
+      case 'aviso':
+      default:
+        return {
+          emoji: '🟡',
+          titulo: `${categoria} a vencer`,
+          corpo: `A sua ${categoria.toLowerCase()} "${d.nome}" vence em ${d.diasRestantes} dia(s) (${dataFormatada}). É recomendável começar a preparar a renovação.`,
+        };
+    }
+  })();
+
+  await notificarAdmins(d.empresaId, `${emoji} ${titulo}`, corpo, {
     tipo: 'documento',
     documentoId: d.documentoId,
     categoria: d.categoria,
+    nivel: d.nivel,
   });
+};
+
+export const documentoRenovado: EventBridgeHandler<'DocumentoRenovado', DetailDocumentoRenovado, void> = async (
+  event,
+) => {
+  const d = event.detail;
+  const categoria = NOMES_CATEGORIA[d.categoria] ?? 'Documento';
+  const dataFormatada = new Date(d.dataValidade).toLocaleDateString('pt-PT');
+
+  await notificarAdmins(
+    d.empresaId,
+    '🟢 Documento atualizado',
+    `A ${categoria.toLowerCase()} "${d.nome}" foi renovada — nova validade em ${dataFormatada}.`,
+    { tipo: 'documento', documentoId: d.documentoId, categoria: d.categoria },
+  );
 };

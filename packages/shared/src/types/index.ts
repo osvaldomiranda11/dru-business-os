@@ -238,8 +238,19 @@ export interface Documento {
   ocrProcessadoEm?: string;
   /** Data de validade (ISO 8601, YYYY-MM-DD) — licenças, contratos, identificação */
   dataValidade?: string;
-  /** true assim que um alerta de expiração já foi enviado, evita repetir notificações */
-  alertaExpiracaoEnviado?: boolean;
+  /**
+   * Último nível de alerta já notificado para este documento. Ausente =
+   * ainda não foi alertado (ou está normal / foi renovado). Permite
+   * escalar a notificação quando o documento passa de "aviso" para
+   * "crítico", por exemplo, em vez de notificar só uma vez.
+   */
+  ultimoNivelAlertaEnviado?: 'aviso' | 'atencao' | 'critico' | 'expirado';
+  /** Data de validade detectada automaticamente no texto (OCR), a aguardar confirmação */
+  dataValidadeSugerida?: string;
+  /** Excerto do texto onde a data sugerida foi encontrada — contexto para o utilizador confirmar */
+  dataValidadeSugeridaTexto?: string;
+  /** true quando o utilizador recusou a sugestão — evita voltar a sugerir a mesma coisa */
+  dataValidadeSugeridaIgnorada?: boolean;
 }
 
 export interface VersaoDocumento {

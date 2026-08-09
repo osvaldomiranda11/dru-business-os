@@ -181,7 +181,6 @@ export const criar: APIGatewayProxyHandler = async (event) => {
     versaoAtual: 1,
     totalVersoes: 1,
     dataValidade: d.dataValidade,
-    alertaExpiracaoEnviado: false,
     criadoPor: auth.userId,
     createdAt: now,
     updatedAt: now,
@@ -399,16 +398,17 @@ export const actualizar: APIGatewayProxyHandler = async (event) => {
   }
 
   // dataValidade é tratado à parte: null remove o campo (documento passa a
-  // não ter validade), e qualquer alteração reinicia o alerta de expiração
-  // para não perder o aviso de uma nova data.
+  // não ter validade); qualquer alteração reinicia o nível de alerta —
+  // se já tinha sido notificado antes, é uma renovação.
   if ('dataValidade' in parsed.data) {
     if (parsed.data.dataValidade) {
-      updateExpr.push('dataValidade = :dataValidade', 'alertaExpiracaoEnviado = :falso');
+      updateExpr.push('dataValidade = :dataValidade');
       exprValues[':dataValidade'] = parsed.data.dataValidade;
-      exprValues[':falso'] = false;
+      removeExpr.push('dataValidadeSugerida', 'dataValidadeSugeridaTexto');
     } else {
-      removeExpr.push('dataValidade', 'alertaExpiracaoEnviado');
+      removeExpr.push('dataValidade');
     }
+    removeExpr.push('ultimoNivelAlertaEnviado');
   }
 
   const updateExpression = `SET ${updateExpr.join(', ')}${
@@ -416,22 +416,80 @@ export const actualizar: APIGatewayProxyHandler = async (event) => {
   }`;
 
   try {
-    await db.send(
+    const resultado = await db.send(
       new UpdateCommand({
         TableName: DOCUMENTOS_TABLE,
         Key: { PK: `empresa#${auth.empresaId}`, SK: `documento#${id}` },
         UpdateExpression: updateExpression,
         ConditionExpression: 'attribute_exists(PK) AND attribute_not_exists(deletedAt)',
         ExpressionAttributeValues: exprValues,
+        ReturnValues: 'ALL_OLD',
       }),
     );
     await registarAuditoria(auth, 'actualizar', 'documento', id, parsed.data);
+
+    // Se o documento já tinha sido alertado (estava em "aviso"/"crítico"/etc)
+    // e a data de validade mudou para um valor novo, é uma renovação —
+    // avisa o utilizador de forma positiva, em vez de ficar em silêncio.
+    const nivelAnterior = resultado.Attributes?.ultimoNivelAlertaEnviado as string | undefined;
+    if (nivelAnterior && parsed.data.dataValidade) {
+      try {
+        await eventBridge.send(
+          new PutEventsCommand({
+            Entries: [{
+              EventBusName: EVENT_BUS_NAME,
+              Source: 'dru-bos.documentos',
+              DetailType: 'DocumentoRenovado',
+              Detail: JSON.stringify({
+                empresaId: auth.empresaId,
+                documentoId: id,
+                nome: (resultado.Attributes?.nome as string) ?? parsed.data.nome,
+                categoria: resultado.Attributes?.categoria,
+                dataValidade: parsed.data.dataValidade,
+              }),
+            }],
+          }),
+        );
+      } catch (evtErr) {
+        logger.error('Erro ao publicar evento DocumentoRenovado', { error: String(evtErr) });
+      }
+    }
+
     return ok({ id, ...parsed.data, updatedAt: now });
   } catch (err: unknown) {
     if ((err as { name?: string }).name === 'ConditionalCheckFailedException') {
       return notFound('Documento não encontrado');
     }
     logger.error('Erro ao actualizar documento', { error: String(err), id });
+    return internalError();
+  }
+};
+
+export const ignorarSugestaoValidade: APIGatewayProxyHandler = async (event) => {
+  const auth = await getAuth(event);
+  if (!auth) return unauthorized();
+  if (auth.role === 'viewer') return forbidden('Sem permissão para gerir documentos');
+
+  const id = event.pathParameters?.id;
+  if (!id) return badRequest('ID do documento obrigatório');
+
+  try {
+    await db.send(
+      new UpdateCommand({
+        TableName: DOCUMENTOS_TABLE,
+        Key: { PK: `empresa#${auth.empresaId}`, SK: `documento#${id}` },
+        UpdateExpression:
+          'SET dataValidadeSugeridaIgnorada = :true REMOVE dataValidadeSugerida, dataValidadeSugeridaTexto',
+        ConditionExpression: 'attribute_exists(PK) AND attribute_not_exists(deletedAt)',
+        ExpressionAttributeValues: { ':true': true },
+      }),
+    );
+    return noContent();
+  } catch (err: unknown) {
+    if ((err as { name?: string }).name === 'ConditionalCheckFailedException') {
+      return notFound('Documento não encontrado');
+    }
+    logger.error('Erro ao ignorar sugestão de validade', { error: String(err), id });
     return internalError();
   }
 };
