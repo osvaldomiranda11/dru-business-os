@@ -2,11 +2,11 @@ import type { APIGatewayProxyHandler } from 'aws-lambda';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { db, ok, unauthorized, internalError, verifyToken, extractToken, logger } from '@dru-bos/shared';
 import type { AuthContext } from '@dru-bos/shared';
+import { calcularNivel } from '../lib/regrasExpiracao';
 
 const DOCUMENTOS_TABLE = process.env.DOCUMENTOS_TABLE!;
 
-/** Mesmo limiar usado no alerta de expiração — "a vencer" = 60 dias ou menos */
-const DIAS_A_VENCER = 60;
+/** O limiar de "a vencer" (60 dias) vive em regrasExpiracao.ts — única fonte de verdade */
 
 async function getAuth(event: Parameters<APIGatewayProxyHandler>[0]): Promise<AuthContext | null> {
   const token = extractToken(event);
@@ -20,6 +20,7 @@ interface DocumentoResumo {
   categoria: string;
   dataValidade: string;
   diasRestantes: number;
+  nivel: 'aviso' | 'atencao' | 'critico' | 'expirado';
 }
 
 export const resumo: APIGatewayProxyHandler = async (event) => {
@@ -66,20 +67,25 @@ export const resumo: APIGatewayProxyHandler = async (event) => {
       const data = new Date(dataValidade);
       const diasRestantes = Math.round((data.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
 
+      const nivel = calcularNivel(diasRestantes);
+      if (!nivel) {
+        regulares++;
+        continue;
+      }
+
       const resumoItem: DocumentoResumo = {
         id: doc.id as string,
         nome: doc.nome as string,
         categoria: doc.categoria as string,
         dataValidade,
         diasRestantes,
+        nivel,
       };
 
       if (diasRestantes < 0) {
         expirados.push(resumoItem);
-      } else if (diasRestantes <= DIAS_A_VENCER) {
-        aVencer.push(resumoItem);
       } else {
-        regulares++;
+        aVencer.push(resumoItem);
       }
     }
 
