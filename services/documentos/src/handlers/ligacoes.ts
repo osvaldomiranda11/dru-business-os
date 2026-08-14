@@ -20,10 +20,21 @@ import type { AuthContext } from '@dru-bos/shared';
 
 const DOCUMENTOS_TABLE = process.env.DOCUMENTOS_TABLE!;
 
-const TIPOS_ENTIDADE = ['cliente', 'fatura', 'produto'] as const;
+/**
+ * Tipo de entidade a que um documento pode ser ligado — deixou de ser uma
+ * lista fechada (2026-08). O núcleo documental é transversal: uma escola
+ * pode ligar a "aluno", uma igreja a "membro", uma instituição a
+ * "processo", sem precisar de código novo aqui. Só validamos o formato
+ * (identificador seguro), não o vocabulário.
+ */
+const TipoEntidadeSchema = z
+  .string()
+  .min(1)
+  .max(50)
+  .regex(/^[a-z][a-z0-9_]*$/, 'Use letras minúsculas, números e _ (ex: cliente, aluno, processo)');
 
 const LigarSchema = z.object({
-  tipoEntidade: z.enum(TIPOS_ENTIDADE),
+  tipoEntidade: TipoEntidadeSchema,
   entidadeId: z.string().min(1),
   entidadeNome: z.string().max(200).optional(),
 });
@@ -130,7 +141,7 @@ export const listarPorEntidade: APIGatewayProxyHandler = async (event) => {
   const tipoEntidade = event.pathParameters?.tipoEntidade;
   const entidadeId = event.pathParameters?.entidadeId;
   if (!tipoEntidade || !entidadeId) return badRequest('Parâmetros obrigatórios em falta');
-  if (!TIPOS_ENTIDADE.includes(tipoEntidade as (typeof TIPOS_ENTIDADE)[number])) {
+  if (!TipoEntidadeSchema.safeParse(tipoEntidade).success) {
     return badRequest('Tipo de entidade inválido');
   }
 

@@ -195,7 +195,15 @@ export type CategoriaDocumento =
   | 'licenca'
   | 'outro';
 
-export type TipoEntidadeLigacao = 'cliente' | 'fatura' | 'produto';
+/**
+ * Tipo de entidade a que um documento pode ser ligado. Deixou de ser um
+ * enum fixo de propósito (2026-08) — o núcleo documental é transversal a
+ * qualquer tipo de organização (empresa, escola, instituição, etc.), por
+ * isso aceita qualquer identificador em snake_case, validado no schema
+ * (services/documentos/src/handlers/ligacoes.ts), não aqui no tipo.
+ * Valores usados hoje pela vertical Business OS: 'cliente' | 'fatura' | 'produto'.
+ */
+export type TipoEntidadeLigacao = string;
 
 export interface Pasta {
   PK: string;
