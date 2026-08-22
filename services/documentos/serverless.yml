@@ -25,6 +25,7 @@ provider:
     COGNITO_USER_POOL_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolId}
     COGNITO_CLIENT_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolClientId}
     DOCUMENTOS_TABLE: ${cf:dru-bos-infra-${sls:stage}.DocumentosTableName}
+    PARTILHAS_TABLE: ${cf:dru-bos-infra-${sls:stage}.PartilhasTableName}
     AUDITORIA_TABLE: ${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
     FILES_BUCKET: ${cf:dru-bos-infra-${sls:stage}.FilesBucketName}
     EVENT_BUS_NAME: ${cf:dru-bos-infra-${sls:stage}.EventBusName}
@@ -43,6 +44,7 @@ provider:
           Resource:
             - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.DocumentosTableName}
             - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.DocumentosTableName}/index/*
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.PartilhasTableName}
             - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
         - Effect: Allow
           Action:
@@ -338,6 +340,85 @@ functions:
     events:
       - http:
           path: /documentos/saude
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  # ── Partilha externa ────────────────────────────────────────────────────
+  criarPartilha:
+    handler: src/handlers/partilhas.criar
+    description: Gera um link de partilha temporário para um documento
+    events:
+      - http:
+          path: /documentos/{id}/partilhas
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  listarPartilhas:
+    handler: src/handlers/partilhas.listar
+    description: Lista partilhas activas de um documento
+    events:
+      - http:
+          path: /documentos/{id}/partilhas
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  revogarPartilha:
+    handler: src/handlers/partilhas.revogar
+    description: Revoga um link de partilha
+    events:
+      - http:
+          path: /documentos/{id}/partilhas/{token}/revogar
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  acederPartilhaPublica:
+    handler: src/handlers/partilhas.acederPublico
+    description: Acesso público (sem conta DRU) a um documento partilhado por link
+    events:
+      - http:
+          path: /partilha/{token}
+          method: GET
+          cors: true
+          # SEM authorizer — este endpoint é deliberadamente público. A
+          # segurança vem do token ser longo e aleatório, da expiração e
+          # do limite de acessos, não de autenticação Cognito.
+
+  # ── Workflow de aprovação (controlo interno, não é assinatura legal) ────
+  atualizarAprovacao:
+    handler: src/handlers/aprovacao.atualizar
+    description: Actualiza o estado de aprovação de um documento e regista no histórico
+    events:
+      - http:
+          path: /documentos/{id}/aprovacao
+          method: PUT
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  historicoAprovacao:
+    handler: src/handlers/aprovacao.historico
+    description: Lista o histórico de alterações ao estado de aprovação de um documento
+    events:
+      - http:
+          path: /documentos/{id}/aprovacao/historico
           method: GET
           cors: true
           authorizer:

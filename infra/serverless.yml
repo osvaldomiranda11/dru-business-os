@@ -65,6 +65,14 @@ resources:
         Value: !Ref DocumentosTable
         Export:
           Name: dru-bos-${sls:stage}-documentos-table
+      PartilhasTableName:
+        Value: !Ref PartilhasTable
+        Export:
+          Name: dru-bos-${sls:stage}-partilhas-table
+      ConversasTableName:
+        Value: !Ref ConversasTable
+        Export:
+          Name: dru-bos-${sls:stage}-conversas-table
       DispositivosTableName:
         Value: !Ref DispositivosTable
         Export:

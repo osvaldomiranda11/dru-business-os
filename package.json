@@ -30,8 +30,10 @@
     "deploy:dashboard:dev": "cd services/dashboard && serverless deploy --stage dev",
     "deploy:documentos": "cd services/documentos && serverless deploy --stage prod",
     "deploy:documentos:dev": "cd services/documentos && serverless deploy --stage dev",
-    "deploy:all": "npm run deploy:infra && npm run deploy:auth && npm run deploy:financeiro && npm run deploy:clientes && npm run deploy:faturacao && npm run deploy:stock && npm run deploy:subscriptions && npm run deploy:notificacoes && npm run deploy:dashboard && npm run deploy:documentos",
-    "deploy:all:dev": "npm run deploy:infra:dev && npm run deploy:auth:dev && npm run deploy:financeiro:dev && npm run deploy:clientes:dev && npm run deploy:faturacao:dev && npm run deploy:stock:dev && npm run deploy:subscriptions:dev && npm run deploy:notificacoes:dev && npm run deploy:dashboard:dev && npm run deploy:documentos:dev",
+    "deploy:assistente": "cd services/assistente && serverless deploy --stage prod",
+    "deploy:assistente:dev": "cd services/assistente && serverless deploy --stage dev",
+    "deploy:all": "npm run deploy:infra && npm run deploy:auth && npm run deploy:financeiro && npm run deploy:clientes && npm run deploy:faturacao && npm run deploy:stock && npm run deploy:subscriptions && npm run deploy:notificacoes && npm run deploy:dashboard && npm run deploy:documentos && npm run deploy:assistente",
+    "deploy:all:dev": "npm run deploy:infra:dev && npm run deploy:auth:dev && npm run deploy:financeiro:dev && npm run deploy:clientes:dev && npm run deploy:faturacao:dev && npm run deploy:stock:dev && npm run deploy:subscriptions:dev && npm run deploy:notificacoes:dev && npm run deploy:dashboard:dev && npm run deploy:documentos:dev && npm run deploy:assistente:dev",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"

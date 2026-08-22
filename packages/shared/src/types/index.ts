@@ -259,6 +259,8 @@ export interface Documento {
   dataValidadeSugeridaTexto?: string;
   /** true quando o utilizador recusou a sugestão — evita voltar a sugerir a mesma coisa */
   dataValidadeSugeridaIgnorada?: boolean;
+  /** Workflow de aprovação (controlo interno, não é assinatura legal) — ausente = fora do workflow */
+  estadoAprovacao?: 'pendente' | 'em_analise' | 'aprovado' | 'rejeitado';
 }
 
 export interface VersaoDocumento {
@@ -304,4 +306,61 @@ export interface AuthContext {
   email: string;
   nome: string;
   role: Role;
+}
+
+// ── Partilha externa de documentos ────────────────────────────────────────
+
+export interface PartilhaDocumento {
+  PK: string; // `token#{token}`
+  token: string;
+  empresaId: string;
+  documentoId: string;
+  criadoPor: string;
+  criadoEm: string;
+  expiraEm: string; // ISO 8601
+  expiraEmEpoch: number; // segundos, usado pelo TTL da tabela
+  limiteAcessos?: number;
+  acessosContagem: number;
+  revogada: boolean;
+}
+
+// ── Workflow de aprovação de documentos (controlo interno, não é assinatura legal) ──
+
+export type EstadoAprovacao = 'pendente' | 'em_analise' | 'aprovado' | 'rejeitado';
+
+export interface HistoricoAprovacao {
+  PK: string;
+  SK: string; // `documento#{id}#aprovacao#{timestamp}`
+  documentoId: string;
+  empresaId: string;
+  estadoAnterior?: EstadoAprovacao;
+  estadoNovo: EstadoAprovacao;
+  utilizadorId: string;
+  utilizadorNome: string;
+  comentario?: string;
+  createdAt: string;
+}
+
+// ── Conversas do Assistente (Camada 1.5 — preparação para a Camada 2 com IA) ──
+
+export interface Conversa {
+  PK: string; // `empresa#{empresaId}#utilizador#{utilizadorId}`
+  SK: string; // `conversa#{id}`
+  id: string;
+  empresaId: string;
+  utilizadorId: string;
+  titulo: string; // primeira pergunta, usada como preview na lista
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MensagemConversa {
+  PK: string;
+  SK: string; // `conversa#{conversaId}#mensagem#{seq com padding}`
+  conversaId: string;
+  empresaId: string;
+  utilizadorId: string;
+  role: 'utilizador' | 'assistente';
+  texto: string;
+  createdAt: string;
 }
