@@ -425,3 +425,67 @@ functions:
             name: CognitoAuthorizer
             type: COGNITO_USER_POOLS
             arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  # ── Permissões por pasta (por pessoa específica) ─────────────────────────
+  definirAcessosPasta:
+    handler: src/handlers/acessos.definir
+    description: Define (substitui por completo) a lista de pessoas com acesso a uma pasta
+    events:
+      - http:
+          path: /documentos/pastas/{id}/acessos
+          method: PUT
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  listarAcessosPasta:
+    handler: src/handlers/acessos.listar
+    description: Lista quem tem acesso a uma pasta
+    events:
+      - http:
+          path: /documentos/pastas/{id}/acessos
+          method: GET
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  # ── Retenção e arquivo ────────────────────────────────────────────────────
+  arquivarDocumento:
+    handler: src/handlers/arquivo.arquivarManual
+    description: Arquiva manualmente um documento
+    events:
+      - http:
+          path: /documentos/{id}/arquivar
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  desarquivarDocumento:
+    handler: src/handlers/arquivo.desarquivar
+    description: Remove um documento do arquivo
+    events:
+      - http:
+          path: /documentos/{id}/desarquivar
+          method: POST
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
+
+  arquivarAntigos:
+    handler: src/handlers/arquivo.arquivarAntigos
+    description: Arquiva automaticamente documentos parados há mais de 180 dias
+    memorySize: 256
+    timeout: 120
+    events:
+      - schedule:
+          rate: cron(30 6 * * ? *) # 06:30 UTC, meia-hora depois de verificarExpiracoes
+          enabled: true

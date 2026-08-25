@@ -19,6 +19,7 @@ import {
   logger,
 } from '@dru-bos/shared';
 import type { AuthContext } from '@dru-bos/shared';
+import { utilizadorTemAcessoPasta } from '../lib/permissoes';
 
 const DOCUMENTOS_TABLE = process.env.DOCUMENTOS_TABLE!;
 
@@ -115,7 +116,14 @@ export const listar: APIGatewayProxyHandler = async (event) => {
       }),
     );
 
-    return ok({ items: result.Items ?? [], total: result.Count ?? 0 });
+    // Uma pasta é restrita a si própria (quem não tem acesso à pasta X não
+    // a vê listada), independentemente de ser pai ou filha de outra.
+    const idsComAcesso: Array<Record<string, unknown>> = [];
+    for (const item of result.Items ?? []) {
+      if (await utilizadorTemAcessoPasta(auth, item.id as string)) idsComAcesso.push(item);
+    }
+
+    return ok({ items: idsComAcesso, total: idsComAcesso.length });
   } catch (err) {
     logger.error('Erro ao listar pastas', { error: String(err) });
     return internalError();

@@ -27,6 +27,7 @@ import {
 } from '@dru-bos/shared';
 import type { AuthContext } from '@dru-bos/shared';
 import { FILES_BUCKET, MIME_TYPES_ACEITES, TAMANHO_MAXIMO_BYTES, novaChaveS3 } from '../lib/util';
+import { utilizadorTemAcessoPasta, filtrarPorAcesso } from '../lib/permissoes';
 
 const DOCUMENTOS_TABLE = process.env.DOCUMENTOS_TABLE!;
 const EVENT_BUS_NAME = process.env.EVENT_BUS_NAME!;
@@ -252,6 +253,7 @@ export const listar: APIGatewayProxyHandler = async (event) => {
   const categoria = qs.categoria;
   const pastaId = qs.pastaId;
   const estadoValidade = qs.estadoValidade; // 'a_vencer' | 'expirado'
+  const verArquivados = qs.arquivado === 'true';
   const cursor = qs.cursor;
 
   const filtros: string[] = ['attribute_not_exists(deletedAt)'];
@@ -274,6 +276,13 @@ export const listar: APIGatewayProxyHandler = async (event) => {
   if (categoria) {
     filtros.push('categoria = :categoria');
     exprValues[':categoria'] = categoria;
+  }
+  if (verArquivados) {
+    filtros.push('arquivado = :arquivado');
+    exprValues[':arquivado'] = true;
+  } else {
+    filtros.push('(attribute_not_exists(arquivado) OR arquivado = :naoArquivado)');
+    exprValues[':naoArquivado'] = false;
   }
   if (estadoValidade === 'expirado' || estadoValidade === 'a_vencer') {
     const hoje = new Date();
@@ -325,7 +334,8 @@ export const listar: APIGatewayProxyHandler = async (event) => {
       ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
       : null;
 
-    return ok({ items, total: items.length, nextCursor });
+    const itemsComAcesso = await filtrarPorAcesso(auth, items);
+    return ok({ items: itemsComAcesso, total: itemsComAcesso.length, nextCursor });
   } catch (err) {
     logger.error('Erro ao listar documentos', { error: String(err) });
     return internalError();
@@ -344,6 +354,9 @@ export const obter: APIGatewayProxyHandler = async (event) => {
       new GetCommand({ TableName: DOCUMENTOS_TABLE, Key: { PK: `empresa#${auth.empresaId}`, SK: `documento#${id}` } }),
     );
     if (!result.Item || result.Item.deletedAt) return notFound('Documento não encontrado');
+    if (!(await utilizadorTemAcessoPasta(auth, result.Item.pastaId as string | undefined))) {
+      return notFound('Documento não encontrado');
+    }
 
     const downloadUrl = await getSignedUrl(
       s3,

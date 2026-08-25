@@ -261,6 +261,22 @@ export interface Documento {
   dataValidadeSugeridaIgnorada?: boolean;
   /** Workflow de aprovação (controlo interno, não é assinatura legal) — ausente = fora do workflow */
   estadoAprovacao?: 'pendente' | 'em_analise' | 'aprovado' | 'rejeitado';
+  /** Retenção automática — arquivado remove da vista por omissão, mas fica pesquisável/acessível */
+  arquivado?: boolean;
+  arquivadoEm?: string;
+}
+
+// ── Permissões por pasta (por pessoa específica) ──────────────────────────
+
+export interface AcessoPasta {
+  PK: string;
+  SK: string; // `pasta#{pastaId}#acesso#{utilizadorId}`
+  pastaId: string;
+  empresaId: string;
+  utilizadorId: string;
+  utilizadorNome: string;
+  concedidoPor: string;
+  createdAt: string;
 }
 
 export interface VersaoDocumento {

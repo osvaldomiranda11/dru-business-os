@@ -17,6 +17,7 @@ import {
   logger,
 } from '@dru-bos/shared';
 import type { AuthContext } from '@dru-bos/shared';
+import { filtrarPorAcesso } from '../lib/permissoes';
 
 const DOCUMENTOS_TABLE = process.env.DOCUMENTOS_TABLE!;
 
@@ -166,7 +167,8 @@ export const listarPorEntidade: APIGatewayProxyHandler = async (event) => {
     );
 
     const documentos = (batch.Responses?.[DOCUMENTOS_TABLE] ?? []).filter((doc) => !doc.deletedAt);
-    return ok({ items: documentos, total: documentos.length });
+    const documentosComAcesso = await filtrarPorAcesso(auth, documentos);
+    return ok({ items: documentosComAcesso, total: documentosComAcesso.length });
   } catch (err) {
     logger.error('Erro ao listar documentos da entidade', { error: String(err), tipoEntidade, entidadeId });
     return internalError();
