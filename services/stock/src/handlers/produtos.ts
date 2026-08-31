@@ -2,7 +2,7 @@
  * Gestão de Produtos — DRU Business OS Stock
  */
 import type { APIGatewayProxyHandler } from 'aws-lambda';
-import { PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand, UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import {
@@ -11,6 +11,7 @@ import {
   created,
   badRequest,
   unauthorized,
+  notFound,
   forbidden,
   internalError,
   verifyToken,
@@ -31,8 +32,10 @@ const ProdutoSchema = z.object({
   precoVenda: z.number().positive(),
   moeda: z.enum(['AOA', 'USD']).default('AOA'),
   unidade: z.enum(['un', 'kg', 'lt', 'mt', 'cx', 'pct']).default('un'),
-  stockActual: z.number().int().nonnegative().default(0),
-  stockMinimo: z.number().int().nonnegative().default(5),
+  // Decimal, não só inteiro — unidades como kg/lt não fazem sentido só
+  // com números inteiros (ex: 2.5kg em stock)
+  stockActual: z.number().nonnegative().default(0),
+  stockMinimo: z.number().nonnegative().default(5),
   ativo: z.boolean().default(true),
 });
 
@@ -93,26 +96,38 @@ export const listar: APIGatewayProxyHandler = async (event) => {
   const apenasStockCritico = qs.stockCritico === 'true';
 
   try {
-    const result = await db.send(
-      new QueryCommand({
-        TableName: STOCK_TABLE,
-        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-        FilterExpression: apenasStockCritico
-          ? 'attribute_not_exists(deletedAt) AND ativo = :ativo AND stockActual <= stockMinimo'
-          : 'attribute_not_exists(deletedAt) AND ativo = :ativo',
-        ExpressionAttributeValues: {
-          ':pk': `empresa#${auth.empresaId}`,
-          ':prefix': 'produto#',
-          ':ativo': true,
-        },
-        Limit: limite,
-        ScanIndexForward: false,
-      }),
-    );
+    // IMPORTANTE: o "Limit" do DynamoDB corta o número de itens AVALIADOS
+    // antes do FilterExpression correr — não o número de itens que passam
+    // no filtro. Como o SK é um UUID (ordem arbitrária, não por data),
+    // usar Limit aqui podia "perder" produtos com stock crítico reais só
+    // por calhar de terem um UUID que ordena mais tarde. Por isso pagina-se
+    // tudo primeiro, e só se corta ao número pedido depois de filtrar.
+    let items: Record<string, unknown>[] = [];
+    let exclusiveStartKey: Record<string, unknown> | undefined;
+
+    do {
+      const result = await db.send(
+        new QueryCommand({
+          TableName: STOCK_TABLE,
+          KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+          FilterExpression: apenasStockCritico
+            ? 'attribute_not_exists(deletedAt) AND ativo = :ativo AND stockActual <= stockMinimo'
+            : 'attribute_not_exists(deletedAt) AND ativo = :ativo',
+          ExpressionAttributeValues: {
+            ':pk': `empresa#${auth.empresaId}`,
+            ':prefix': 'produto#',
+            ':ativo': true,
+          },
+          ExclusiveStartKey: exclusiveStartKey,
+        }),
+      );
+      items = items.concat(result.Items ?? []);
+      exclusiveStartKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (exclusiveStartKey);
 
     return ok({
-      items: result.Items ?? [],
-      total: result.Count ?? 0,
+      items: items.slice(0, limite),
+      total: items.length,
       stockCritico: apenasStockCritico,
     });
   } catch (err) {
@@ -139,9 +154,31 @@ export const actualizar: APIGatewayProxyHandler = async (event) => {
 
   const now = new Date().toISOString();
   const campos = Object.keys(parsed.data) as Array<keyof typeof parsed.data>;
-  const updateExpr = ['updatedAt = :updatedAt', ...campos.map((c) => `${c} = :${c}`)].join(', ');
   const exprValues: Record<string, unknown> = { ':updatedAt': now };
   for (const c of campos) exprValues[`:${c}`] = parsed.data[c];
+
+  // A margem depende dos dois preços — se só um deles mudar (ex: só o
+  // preço de venda), é preciso saber o outro (que não veio no pedido)
+  // para recalcular correctamente. Sem isto, a margem guardada ficava
+  // desactualizada silenciosamente sempre que se editava um preço.
+  const precosAlterados = parsed.data.precoVenda !== undefined || parsed.data.precoCusto !== undefined;
+  const camposUpdate = [...campos.map((c) => `${c} = :${c}`)];
+
+  if (precosAlterados) {
+    const actual = await db.send(
+      new GetCommand({ TableName: STOCK_TABLE, Key: { PK: `empresa#${auth.empresaId}`, SK: `produto#${id}` } }),
+    );
+    if (!actual.Item || actual.Item.deletedAt) return notFound('Produto não encontrado');
+
+    const precoVenda = parsed.data.precoVenda ?? (actual.Item.precoVenda as number);
+    const precoCusto = parsed.data.precoCusto ?? (actual.Item.precoCusto as number);
+    const margem = precoVenda > 0 ? Number((((precoVenda - precoCusto) / precoVenda) * 100).toFixed(2)) : 0;
+
+    camposUpdate.push('margem = :margem');
+    exprValues[':margem'] = margem;
+  }
+
+  const updateExpr = ['updatedAt = :updatedAt', ...camposUpdate].join(', ');
 
   try {
     await db.send(

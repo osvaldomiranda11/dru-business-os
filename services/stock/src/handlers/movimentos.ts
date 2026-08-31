@@ -5,7 +5,7 @@
  * Actualiza stockActual via DynamoDB atomic counter.
  */
 import type { APIGatewayProxyHandler } from 'aws-lambda';
-import { PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
@@ -32,7 +32,9 @@ const eventBridge = new EventBridgeClient({ region: 'af-south-1' });
 const MovimentoSchema = z.object({
   produtoId: z.string().uuid('ID do produto inválido'),
   tipo: z.enum(['entrada', 'saida']),
-  quantidade: z.number().int().positive('Quantidade deve ser um inteiro positivo'),
+  // Decimal, não só inteiro — produtos vendidos a peso/volume (kg, lt)
+  // precisam de registar quantidades como 1.5kg ou 0.75lt.
+  quantidade: z.number().positive('Quantidade deve ser positiva'),
   motivo: z.enum(['compra', 'venda', 'ajuste', 'devolucao', 'perda']),
   observacoes: z.string().max(500).optional(),
   data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default(() => new Date().toISOString().split('T')[0]),
@@ -81,19 +83,37 @@ export const registar: APIGatewayProxyHandler = async (event) => {
   };
 
   try {
-    // Gravar movimento e actualizar stock atomicamente
-    await Promise.all([
-      db.send(new PutCommand({ TableName: STOCK_TABLE, Item: movimento })),
-      db.send(
-        new UpdateCommand({
-          TableName: STOCK_TABLE,
-          Key: { PK: `empresa#${auth.empresaId}`, SK: `produto#${produtoId}` },
-          UpdateExpression: 'SET stockActual = stockActual + :delta, updatedAt = :updatedAt',
-          ConditionExpression: 'attribute_exists(PK)',
-          ExpressionAttributeValues: { ':delta': delta, ':updatedAt': now },
-        }),
-      ),
-    ]);
+    // TransactWriteCommand garante atomicidade a sério: ou o movimento é
+    // gravado E o stock é actualizado, ou nenhum dos dois acontece — nunca
+    // fica um movimento registado sem o stock reflectir isso (o Promise.all
+    // anterior não dava essa garantia, só corria os dois em paralelo).
+    //
+    // Numa saída, a condição stockActual >= :quantidade impede vender mais
+    // do que existe — a transação falha de propósito nesse caso, em vez de
+    // deixar o stock ir a negativo silenciosamente.
+    await db.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          { Put: { TableName: STOCK_TABLE, Item: movimento } },
+          {
+            Update: {
+              TableName: STOCK_TABLE,
+              Key: { PK: `empresa#${auth.empresaId}`, SK: `produto#${produtoId}` },
+              UpdateExpression: 'SET stockActual = stockActual + :delta, updatedAt = :updatedAt',
+              ConditionExpression:
+                tipo === 'saida'
+                  ? 'attribute_exists(PK) AND stockActual >= :quantidadeAbsoluta'
+                  : 'attribute_exists(PK)',
+              ExpressionAttributeValues: {
+                ':delta': delta,
+                ':updatedAt': now,
+                ...(tipo === 'saida' && { ':quantidadeAbsoluta': quantidade }),
+              },
+            },
+          },
+        ],
+      }),
+    );
 
     // Publicar evento no EventBridge para verificação de stock mínimo
     await eventBridge.send(
@@ -115,7 +135,14 @@ export const registar: APIGatewayProxyHandler = async (event) => {
 
     await registarAuditoria(auth, 'registar-movimento', 'stock', produtoId, { tipo, quantidade, motivo });
     return created({ id, produtoId, tipo, quantidade, delta, data, createdAt: now });
-  } catch (err) {
+  } catch (err: unknown) {
+    if ((err as { name?: string }).name === 'TransactionCanceledException') {
+      return badRequest(
+        tipo === 'saida'
+          ? 'Stock insuficiente para esta saída'
+          : 'Não foi possível registar o movimento — produto não encontrado',
+      );
+    }
     logger.error('Erro ao registar movimento', { error: String(err), produtoId });
     return internalError();
   }
