@@ -240,34 +240,44 @@ export const listar: APIGatewayProxyHandler = async (event) => {
   const qs = event.queryStringParameters ?? {};
   const estado = qs.estado;
   const limite = Math.min(Number(qs.limite ?? 50), 100);
-  const cursor = qs.cursor;
 
   try {
-    const result = await db.send(
-      new QueryCommand({
-        TableName: FATURACAO_TABLE,
-        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-        FilterExpression: estado
-          ? 'attribute_not_exists(deletedAt) AND estado = :estado'
-          : 'attribute_not_exists(deletedAt)',
-        ExpressionAttributeValues: {
-          ':pk': `empresa#${auth.empresaId}`,
-          ':prefix': 'fatura#',
-          ...(estado && { ':estado': estado }),
-        },
-        Limit: limite,
-        ScanIndexForward: false,
-        ExclusiveStartKey: cursor
-          ? JSON.parse(Buffer.from(cursor, 'base64').toString())
-          : undefined,
-      }),
-    );
+    // O "Limit" do DynamoDB corta o número de itens AVALIADOS antes do
+    // FilterExpression correr — não o número de itens que passam no
+    // filtro. Com um filtro por estado (ex: "pendente"), isso podia
+    // devolver muito menos faturas do que existem de verdade, só porque
+    // as mais recentes (as primeiras avaliadas) calharam de já estar
+    // pagas. Pagina-se tudo (com um tecto de segurança) e só se corta ao
+    // número pedido depois de filtrar — o frontend não usa o cursor de
+    // paginação, por isso simplificar assim não quebra nada.
+    let items: Record<string, unknown>[] = [];
+    let exclusiveStartKey: Record<string, unknown> | undefined;
+    let paginas = 0;
+    const TECTO_PAGINAS = 20;
 
-    const nextCursor = result.LastEvaluatedKey
-      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-      : null;
+    do {
+      const result = await db.send(
+        new QueryCommand({
+          TableName: FATURACAO_TABLE,
+          KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+          FilterExpression: estado
+            ? 'attribute_not_exists(deletedAt) AND estado = :estado'
+            : 'attribute_not_exists(deletedAt)',
+          ExpressionAttributeValues: {
+            ':pk': `empresa#${auth.empresaId}`,
+            ':prefix': 'fatura#',
+            ...(estado && { ':estado': estado }),
+          },
+          ScanIndexForward: false,
+          ExclusiveStartKey: exclusiveStartKey,
+        }),
+      );
+      items = items.concat(result.Items ?? []);
+      exclusiveStartKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+      paginas++;
+    } while (exclusiveStartKey && paginas < TECTO_PAGINAS && items.length < limite * 4);
 
-    return ok({ items: result.Items ?? [], total: result.Count ?? 0, nextCursor });
+    return ok({ items: items.slice(0, limite), total: items.length, nextCursor: null });
   } catch (err) {
     logger.error('Erro ao listar faturas', { error: String(err) });
     return internalError();
