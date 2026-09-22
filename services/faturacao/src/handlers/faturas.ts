@@ -318,7 +318,6 @@ export async function aplicarPagamento(
     : uuidv4();
   const pagamentoKey = `fatura#${fatura.ano}#${String(fatura.sequencial).padStart(6, '0')}#pagamento#${pagamentoId}`;
   let pagamentoNovo = true;
-  let pagamentoCriado = true;
 
   try {
     await db.send(
@@ -369,8 +368,6 @@ export async function aplicarPagamento(
       throw new Error('Chave de idempotencia reutilizada com dados diferentes');
     }
     pagamentoNovo = false;
-    if (Number(existente.Item.valor) !== pagamento.valor || existente.Item.faturaId !== fatura.id) throw err;
-    pagamentoCriado = false;
   }
 
   const actualizada = await db.send(
@@ -395,26 +392,24 @@ export async function aplicarPagamento(
     if ((err as { name?: string }).name !== 'ConditionalCheckFailedException') throw err;
   }
 
-  if (pagamentoCriado) {
-    if (pagamentoNovo) {
-      await eventBridge.send(
-        new PutEventsCommand({
-          Entries: [{
-            EventBusName: EVENT_BUS_NAME,
-            Source: 'dru-bos.faturacao',
-            DetailType: 'PagamentoRegistado',
-            Detail: JSON.stringify({
-              empresaId,
-              faturaId: fatura.id,
-              numero: fatura.numero,
-              valor: pagamento.valor,
-              metodo: pagamento.metodo,
-              estado: novoEstado,
-            }),
-          }],
-        }),
-      );
-    }
+  if (pagamentoNovo) {
+    await eventBridge.send(
+      new PutEventsCommand({
+        Entries: [{
+          EventBusName: EVENT_BUS_NAME,
+          Source: 'dru-bos.faturacao',
+          DetailType: 'PagamentoRegistado',
+          Detail: JSON.stringify({
+            empresaId,
+            faturaId: fatura.id,
+            numero: fatura.numero,
+            valor: pagamento.valor,
+            metodo: pagamento.metodo,
+            estado: novoEstado,
+          }),
+        }],
+      }),
+    );
   }
 
   return { pagamentoId, novoTotalPago: totalPago, novoEstado };

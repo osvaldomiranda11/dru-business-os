@@ -11,6 +11,8 @@ provider:
     NODE_ENV: ${sls:stage}
     SERVICE_NAME: dru-bos-restaurante
     RESTAURANTE_TABLE: ${cf:dru-bos-infra-${sls:stage}.RestauranteTableName}
+    STOCK_TABLE: ${cf:dru-bos-infra-${sls:stage}.StockTableName}
+    FATURACAO_TABLE: ${cf:dru-bos-infra-${sls:stage}.FaturacaoTableName}
     EVENT_BUS_NAME: ${cf:dru-bos-infra-${sls:stage}.EventBusName}
   iam:
     role:
@@ -19,6 +21,8 @@ provider:
           Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:Query, dynamodb:TransactWriteItems]
           Resource:
             - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.RestauranteTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.StockTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.FaturacaoTableName}
             - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
 
 plugins: [serverless-esbuild]
@@ -91,5 +95,19 @@ functions:
     events:
       - http:
           path: /restaurante/pedidos/{id}/estado
+          method: post
+          cors: true
+  fecharPedido:
+    handler: src/handlers/operacao.fecharPedido
+    events:
+      - http:
+          path: /restaurante/pedidos/{id}/fecho
+          method: post
+          cors: true
+  faturarPedido:
+    handler: src/handlers/operacao.faturarPedido
+    events:
+      - http:
+          path: /restaurante/pedidos/{id}/faturar
           method: post
           cors: true
