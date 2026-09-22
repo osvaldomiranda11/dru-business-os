@@ -71,6 +71,7 @@ export const webhookMulticaixa: APIGatewayProxyHandler = async (event) => {
     logger.info('Webhook Multicaixa — pagamento não concluído', { faturaId, estado });
     return ok({ received: true, processado: false, estado });
   }
+  if (!referencia) return badRequest('Referencia obrigatória para pagamentos SUCCESS');
 
   try {
     const fatura = await obterFaturaPorId(empresaId, faturaId);
@@ -88,6 +89,7 @@ export const webhookMulticaixa: APIGatewayProxyHandler = async (event) => {
         data: new Date().toISOString().split('T')[0],
       },
       'sistema-multicaixa',
+      referencia,
     );
 
     logger.info('Webhook Multicaixa — pagamento registado', { faturaId, pagamentoId, novoEstado });

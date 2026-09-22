@@ -298,10 +298,32 @@ jobs:
       - name: Deploy — Assistente
         run: cd services/assistente && npx serverless deploy --stage prod --verbose
 
+  deploy-restaurante:
+    name: Deploy Serviço Restaurante
+    runs-on: ubuntu-latest
+    environment: production
+    needs: deploy-infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Instalar dependências
+        run: npm ci
+      - name: Configurar AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: af-south-1
+      - name: Deploy — Restaurante
+        run: cd services/restaurante && npx serverless deploy --stage prod --verbose
+
   notify:
     name: Notificação de Deploy
     runs-on: ubuntu-latest
-    needs: [deploy-auth, deploy-financeiro, deploy-clientes, deploy-stock, deploy-faturacao, deploy-dashboard, deploy-subscriptions, deploy-notificacoes, deploy-documentos, deploy-assistente]
+    needs: [deploy-auth, deploy-financeiro, deploy-clientes, deploy-stock, deploy-faturacao, deploy-dashboard, deploy-subscriptions, deploy-notificacoes, deploy-documentos, deploy-assistente, deploy-restaurante]
     if: always()
     steps:
       - name: Resultado do deploy
@@ -315,7 +337,8 @@ jobs:
              [ "${{ needs.deploy-subscriptions.result }}" == "success" ] && \
              [ "${{ needs.deploy-notificacoes.result }}" == "success" ] && \
              [ "${{ needs.deploy-documentos.result }}" == "success" ] && \
-             [ "${{ needs.deploy-assistente.result }}" == "success" ]; then
+             [ "${{ needs.deploy-assistente.result }}" == "success" ] && \
+             [ "${{ needs.deploy-restaurante.result }}" == "success" ]; then
             echo "✅ Deploy de produção concluído com sucesso"
           else
             echo "❌ Deploy de produção falhou"

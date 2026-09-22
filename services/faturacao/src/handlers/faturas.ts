@@ -6,7 +6,7 @@
  * cálculo de IVA por linha, geração de PDF e registo de pagamentos.
  */
 import type { APIGatewayProxyHandler } from 'aws-lambda';
-import { PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
@@ -310,66 +310,114 @@ export async function aplicarPagamento(
   fatura: Fatura,
   pagamento: { valor: number; metodo: string; referencia?: string; data: string },
   registadoPor: string,
+  idempotencia?: string,
 ): Promise<{ pagamentoId: string; novoTotalPago: number; novoEstado: Fatura['estado'] }> {
-  const novoTotalPago = round2(fatura.totalPago + pagamento.valor);
-  const novoEstado: Fatura['estado'] = novoTotalPago >= fatura.total ? 'paga' : 'parcial';
   const now = new Date().toISOString();
-  const pagamentoId = uuidv4();
+  const pagamentoId = idempotencia
+    ? `pag-${Buffer.from(`${empresaId}:${fatura.id}:${idempotencia}`).toString('base64url')}`
+    : uuidv4();
+  const pagamentoKey = `fatura#${fatura.ano}#${String(fatura.sequencial).padStart(6, '0')}#pagamento#${pagamentoId}`;
+  let pagamentoNovo = true;
+  let pagamentoCriado = true;
 
-  await Promise.all([
-    db.send(
-      new PutCommand({
-        TableName: FATURACAO_TABLE,
-        Item: {
-          PK: `empresa#${empresaId}`,
-          SK: `fatura#${fatura.ano}#${String(fatura.sequencial).padStart(6, '0')}#pagamento#${pagamentoId}`,
-          id: pagamentoId,
-          empresaId,
-          faturaId: fatura.id,
-          faturaNumero: fatura.numero,
-          valor: pagamento.valor,
-          moeda: fatura.moeda,
-          metodo: pagamento.metodo,
-          referencia: pagamento.referencia,
-          data: pagamento.data,
-          registadoPor,
-          createdAt: now,
-        },
+  try {
+    await db.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Put: {
+              TableName: FATURACAO_TABLE,
+              Item: {
+                PK: `empresa#${empresaId}`,
+                SK: pagamentoKey,
+                id: pagamentoId,
+                empresaId,
+                faturaId: fatura.id,
+                faturaNumero: fatura.numero,
+                valor: pagamento.valor,
+                moeda: fatura.moeda,
+                metodo: pagamento.metodo,
+                referencia: pagamento.referencia,
+                idempotencia,
+                data: pagamento.data,
+                registadoPor,
+                createdAt: now,
+              },
+              ConditionExpression: 'attribute_not_exists(PK)',
+            },
+          },
+          {
+            Update: {
+              TableName: FATURACAO_TABLE,
+              Key: { PK: fatura.PK, SK: fatura.SK },
+              UpdateExpression: 'SET updatedAt = :now ADD totalPago :valor',
+              ConditionExpression: 'attribute_exists(PK) AND attribute_not_exists(deletedAt)',
+              ExpressionAttributeValues: { ':valor': pagamento.valor, ':now': now },
+            },
+          },
+        ],
       }),
-    ),
-    db.send(
+    );
+  } catch (err: unknown) {
+    if ((err as { name?: string }).name !== 'TransactionCanceledException' || !idempotencia) throw err;
+
+    const existente = await db.send(
+      new GetCommand({ TableName: FATURACAO_TABLE, Key: { PK: `empresa#${empresaId}`, SK: pagamentoKey }, ConsistentRead: true }),
+    );
+    if (!existente.Item) throw err;
+    if (Number(existente.Item.valor) !== pagamento.valor || existente.Item.faturaId !== fatura.id) {
+      throw new Error('Chave de idempotencia reutilizada com dados diferentes');
+    }
+    pagamentoNovo = false;
+    if (Number(existente.Item.valor) !== pagamento.valor || existente.Item.faturaId !== fatura.id) throw err;
+    pagamentoCriado = false;
+  }
+
+  const actualizada = await db.send(
+    new GetCommand({ TableName: FATURACAO_TABLE, Key: { PK: fatura.PK, SK: fatura.SK }, ConsistentRead: true }),
+  );
+  const totalPago = Number(actualizada.Item?.totalPago ?? fatura.totalPago);
+  const novoEstado: Fatura['estado'] = totalPago >= fatura.total ? 'paga' : 'parcial';
+
+  try {
+    await db.send(
       new UpdateCommand({
         TableName: FATURACAO_TABLE,
         Key: { PK: fatura.PK, SK: fatura.SK },
-        UpdateExpression: 'SET totalPago = :totalPago, estado = :estado, updatedAt = :now',
-        ExpressionAttributeValues: {
-          ':totalPago': novoTotalPago,
-          ':estado': novoEstado,
-          ':now': now,
-        },
+        UpdateExpression: 'SET estado = :estado, updatedAt = :now',
+        ConditionExpression: novoEstado === 'paga'
+          ? 'totalPago >= :total'
+          : 'totalPago < :total AND estado <> :paga',
+        ExpressionAttributeValues: { ':estado': novoEstado, ':now': now, ':total': fatura.total, ':paga': 'paga' },
       }),
-    ),
-  ]);
+    );
+  } catch (err: unknown) {
+    if ((err as { name?: string }).name !== 'ConditionalCheckFailedException') throw err;
+  }
 
-  await eventBridge.send(
-    new PutEventsCommand({
-      Entries: [{
-        EventBusName: EVENT_BUS_NAME,
-        Source: 'dru-bos.faturacao',
-        DetailType: 'PagamentoRegistado',
-        Detail: JSON.stringify({
-          empresaId,
-          faturaId: fatura.id,
-          numero: fatura.numero,
-          valor: pagamento.valor,
-          metodo: pagamento.metodo,
-          estado: novoEstado,
+  if (pagamentoCriado) {
+    if (pagamentoNovo) {
+      await eventBridge.send(
+        new PutEventsCommand({
+          Entries: [{
+            EventBusName: EVENT_BUS_NAME,
+            Source: 'dru-bos.faturacao',
+            DetailType: 'PagamentoRegistado',
+            Detail: JSON.stringify({
+              empresaId,
+              faturaId: fatura.id,
+              numero: fatura.numero,
+              valor: pagamento.valor,
+              metodo: pagamento.metodo,
+              estado: novoEstado,
+            }),
+          }],
         }),
-      }],
-    }),
-  );
+      );
+    }
+  }
 
-  return { pagamentoId, novoTotalPago, novoEstado };
+  return { pagamentoId, novoTotalPago: totalPago, novoEstado };
 }
 
 export const registarPagamento: APIGatewayProxyHandler = async (event) => {

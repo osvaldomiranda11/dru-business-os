@@ -142,6 +142,32 @@ Resources:
         - Key: Ambiente
           Value: ${sls:stage}
 
+  RestauranteTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}}
+    Properties:
+      TableName: dru-bos-${sls:stage}-restaurante
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      Tags:
+        - Key: Produto
+          Value: dru-business-os
+        - Key: Ambiente
+          Value: ${sls:stage}
+
   StockTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: ${self:custom.deletionPolicy.${sls:stage}}

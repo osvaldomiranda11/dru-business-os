@@ -43,6 +43,9 @@ jobs:
       - name: Type check — faturacao
         run: cd services/faturacao && npx tsc --noEmit
 
+      - name: Type check — restaurante
+        run: cd services/restaurante && npx tsc --noEmit
+
       - name: Type check — dashboard
         run: cd services/dashboard && npx tsc --noEmit
 

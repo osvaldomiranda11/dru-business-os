@@ -1,0 +1,59 @@
+service: dru-bos-restaurante
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  region: af-south-1
+  stage: ${opt:stage, 'dev'}
+  runtime: nodejs20.x
+  architecture: arm64
+  environment:
+    NODE_ENV: ${sls:stage}
+    SERVICE_NAME: dru-bos-restaurante
+    RESTAURANTE_TABLE: ${cf:dru-bos-infra-${sls:stage}.RestauranteTableName}
+    EVENT_BUS_NAME: ${cf:dru-bos-infra-${sls:stage}.EventBusName}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:Query, dynamodb:TransactWriteItems]
+          Resource:
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.RestauranteTableName}
+            - arn:aws:dynamodb:af-south-1:*:table/${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
+
+plugins: [serverless-esbuild]
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+
+functions:
+  abrirCaixa:
+    handler: src/handlers/caixas.abrir
+    events: [{ http: { path: /restaurante/caixas, method: post, cors: true } }]
+  listarCaixas:
+    handler: src/handlers/caixas.listar
+    events: [{ http: { path: /restaurante/caixas, method: get, cors: true } }]
+  movimentarCaixa:
+    handler: src/handlers/caixas.movimentar
+    events: [{ http: { path: /restaurante/caixas/{id}/movimentos, method: post, cors: true } }]
+  fecharCaixa:
+    handler: src/handlers/caixas.fechar
+    events: [{ http: { path: /restaurante/caixas/{id}/fecho, method: post, cors: true } }]
+  criarMesa:
+    handler: src/handlers/operacao.criarMesa
+    events: [{ http: { path: /restaurante/mesas, method: post, cors: true } }]
+  listarMesas:
+    handler: src/handlers/operacao.listarMesas
+    events: [{ http: { path: /restaurante/mesas, method: get, cors: true } }]
+  abrirPedido:
+    handler: src/handlers/operacao.abrirPedido
+    events: [{ http: { path: /restaurante/pedidos, method: post, cors: true } }]
+  adicionarLinhaPedido:
+    handler: src/handlers/operacao.adicionarLinha
+    events: [{ http: { path: /restaurante/pedidos/{id}/linhas, method: post, cors: true } }]
+  alterarEstadoPedido:
+    handler: src/handlers/operacao.alterarEstado
+    events: [{ http: { path: /restaurante/pedidos/{id}/estado, method: post, cors: true } }]

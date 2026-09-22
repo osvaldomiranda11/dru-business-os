@@ -53,6 +53,10 @@ resources:
         Value: !Ref FaturacaoTable
         Export:
           Name: dru-bos-${sls:stage}-faturacao-table
+      RestauranteTableName:
+        Value: !Ref RestauranteTable
+        Export:
+          Name: dru-bos-${sls:stage}-restaurante-table
       StockTableName:
         Value: !Ref StockTable
         Export:

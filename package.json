@@ -29,12 +29,15 @@
     "deploy:dashboard": "cd services/dashboard && serverless deploy --stage prod",
     "deploy:dashboard:dev": "cd services/dashboard && serverless deploy --stage dev",
     "deploy:documentos": "cd services/documentos && serverless deploy --stage prod",
+    "deploy:restaurante": "cd services/restaurante && serverless deploy --stage prod",
     "deploy:documentos:dev": "cd services/documentos && serverless deploy --stage dev",
+    "deploy:restaurante:dev": "cd services/restaurante && serverless deploy --stage dev",
     "deploy:assistente": "cd services/assistente && serverless deploy --stage prod",
     "deploy:assistente:dev": "cd services/assistente && serverless deploy --stage dev",
-    "deploy:all": "npm run deploy:infra && npm run deploy:auth && npm run deploy:financeiro && npm run deploy:clientes && npm run deploy:faturacao && npm run deploy:stock && npm run deploy:subscriptions && npm run deploy:notificacoes && npm run deploy:dashboard && npm run deploy:documentos && npm run deploy:assistente",
-    "deploy:all:dev": "npm run deploy:infra:dev && npm run deploy:auth:dev && npm run deploy:financeiro:dev && npm run deploy:clientes:dev && npm run deploy:faturacao:dev && npm run deploy:stock:dev && npm run deploy:subscriptions:dev && npm run deploy:notificacoes:dev && npm run deploy:dashboard:dev && npm run deploy:documentos:dev && npm run deploy:assistente:dev",
+    "deploy:all": "npm run deploy:infra && npm run deploy:auth && npm run deploy:financeiro && npm run deploy:clientes && npm run deploy:faturacao && npm run deploy:stock && npm run deploy:subscriptions && npm run deploy:notificacoes && npm run deploy:dashboard && npm run deploy:documentos && npm run deploy:restaurante && npm run deploy:assistente",
+    "deploy:all:dev": "npm run deploy:infra:dev && npm run deploy:auth:dev && npm run deploy:financeiro:dev && npm run deploy:clientes:dev && npm run deploy:faturacao:dev && npm run deploy:stock:dev && npm run deploy:subscriptions:dev && npm run deploy:notificacoes:dev && npm run deploy:dashboard:dev && npm run deploy:documentos:dev && npm run deploy:restaurante:dev && npm run deploy:assistente:dev",
     "test": "npm run test --workspaces --if-present",
+    "test:unit": "jest --config jest.config.cjs --runInBand",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
   },
@@ -43,9 +46,12 @@
     "npm": ">=10.0.0"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "fast-deep-equal": "^3.1.3",
+    "jest": "^30.5.2",
     "serverless": "^3.40.0",
-    "serverless-esbuild": "^1.52.1"
+    "serverless-esbuild": "^1.52.1",
+    "ts-jest": "^29.4.12"
   },
   "overrides": {
     "ajv": {
