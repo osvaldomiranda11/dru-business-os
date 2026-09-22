@@ -32,28 +32,64 @@ custom:
 functions:
   abrirCaixa:
     handler: src/handlers/caixas.abrir
-    events: [{ http: { path: /restaurante/caixas, method: post, cors: true } }]
+    events:
+      - http:
+          path: /restaurante/caixas
+          method: post
+          cors: true
   listarCaixas:
     handler: src/handlers/caixas.listar
-    events: [{ http: { path: /restaurante/caixas, method: get, cors: true } }]
+    events:
+      - http:
+          path: /restaurante/caixas
+          method: get
+          cors: true
   movimentarCaixa:
     handler: src/handlers/caixas.movimentar
-    events: [{ http: { path: /restaurante/caixas/{id}/movimentos, method: post, cors: true } }]
+    events:
+      - http:
+          path: /restaurante/caixas/{id}/movimentos
+          method: post
+          cors: true
   fecharCaixa:
     handler: src/handlers/caixas.fechar
-    events: [{ http: { path: /restaurante/caixas/{id}/fecho, method: post, cors: true } }]
+    events:
+      - http:
+          path: /restaurante/caixas/{id}/fecho
+          method: post
+          cors: true
   criarMesa:
     handler: src/handlers/operacao.criarMesa
-    events: [{ http: { path: /restaurante/mesas, method: post, cors: true } }]
+    events:
+      - http:
+          path: /restaurante/mesas
+          method: post
+          cors: true
   listarMesas:
     handler: src/handlers/operacao.listarMesas
-    events: [{ http: { path: /restaurante/mesas, method: get, cors: true } }]
+    events:
+      - http:
+          path: /restaurante/mesas
+          method: get
+          cors: true
   abrirPedido:
     handler: src/handlers/operacao.abrirPedido
-    events: [{ http: { path: /restaurante/pedidos, method: post, cors: true } }]
+    events:
+      - http:
+          path: /restaurante/pedidos
+          method: post
+          cors: true
   adicionarLinhaPedido:
     handler: src/handlers/operacao.adicionarLinha
-    events: [{ http: { path: /restaurante/pedidos/{id}/linhas, method: post, cors: true } }]
+    events:
+      - http:
+          path: /restaurante/pedidos/{id}/linhas
+          method: post
+          cors: true
   alterarEstadoPedido:
     handler: src/handlers/operacao.alterarEstado
-    events: [{ http: { path: /restaurante/pedidos/{id}/estado, method: post, cors: true } }]
+    events:
+      - http:
+          path: /restaurante/pedidos/{id}/estado
+          method: post
+          cors: true
