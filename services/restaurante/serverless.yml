@@ -111,3 +111,17 @@ functions:
           path: /restaurante/pedidos/{id}/faturar
           method: post
           cors: true
+  filaCozinha:
+    handler: src/handlers/analise.filaCozinha
+    events:
+      - http:
+          path: /restaurante/cozinha/fila
+          method: get
+          cors: true
+  relatorioVendas:
+    handler: src/handlers/analise.relatorioVendas
+    events:
+      - http:
+          path: /restaurante/relatorios/vendas
+          method: get
+          cors: true
