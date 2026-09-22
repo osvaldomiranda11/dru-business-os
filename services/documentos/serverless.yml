@@ -274,7 +274,7 @@ functions:
   # ── Ligações a entidades ────────────────────────────────────────────────
   ligarDocumento:
     handler: src/handlers/ligacoes.ligar
-    description: Liga um documento a uma entidade (cliente, fatura ou produto)
+    description: Liga um documento a qualquer entidade operacional da empresa
     events:
       - http:
           path: /documentos/{id}/ligar
