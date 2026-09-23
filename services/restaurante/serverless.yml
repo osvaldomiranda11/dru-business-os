@@ -41,6 +41,10 @@ functions:
           path: /restaurante/caixas
           method: post
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
   listarCaixas:
     handler: src/handlers/caixas.listar
     events:
@@ -48,6 +52,10 @@ functions:
           path: /restaurante/caixas
           method: get
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
   movimentarCaixa:
     handler: src/handlers/caixas.movimentar
     events:
@@ -55,6 +63,10 @@ functions:
           path: /restaurante/caixas/{id}/movimentos
           method: post
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
   fecharCaixa:
     handler: src/handlers/caixas.fechar
     events:
@@ -62,6 +74,10 @@ functions:
           path: /restaurante/caixas/{id}/fecho
           method: post
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
   criarMesa:
     handler: src/handlers/operacao.criarMesa
     events:
@@ -69,6 +85,10 @@ functions:
           path: /restaurante/mesas
           method: post
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
   listarMesas:
     handler: src/handlers/operacao.listarMesas
     events:
@@ -76,6 +96,10 @@ functions:
           path: /restaurante/mesas
           method: get
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
   abrirPedido:
     handler: src/handlers/operacao.abrirPedido
     events:
@@ -83,6 +107,10 @@ functions:
           path: /restaurante/pedidos
           method: post
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
   adicionarLinhaPedido:
     handler: src/handlers/operacao.adicionarLinha
     events:
@@ -90,6 +118,10 @@ functions:
           path: /restaurante/pedidos/{id}/linhas
           method: post
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
   alterarEstadoPedido:
     handler: src/handlers/operacao.alterarEstado
     events:
@@ -97,6 +129,10 @@ functions:
           path: /restaurante/pedidos/{id}/estado
           method: post
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
   fecharPedido:
     handler: src/handlers/operacao.fecharPedido
     events:
@@ -104,6 +140,10 @@ functions:
           path: /restaurante/pedidos/{id}/fecho
           method: post
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
   faturarPedido:
     handler: src/handlers/operacao.faturarPedido
     events:
@@ -111,6 +151,10 @@ functions:
           path: /restaurante/pedidos/{id}/faturar
           method: post
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
   filaCozinha:
     handler: src/handlers/analise.filaCozinha
     events:
@@ -118,6 +162,10 @@ functions:
           path: /restaurante/cozinha/fila
           method: get
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
   relatorioVendas:
     handler: src/handlers/analise.relatorioVendas
     events:
@@ -125,3 +173,7 @@ functions:
           path: /restaurante/relatorios/vendas
           method: get
           cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolArn}
