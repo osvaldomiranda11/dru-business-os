@@ -10,6 +10,8 @@ provider:
   environment:
     NODE_ENV: ${sls:stage}
     SERVICE_NAME: dru-bos-restaurante
+    COGNITO_USER_POOL_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolId}
+    COGNITO_CLIENT_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolClientId}
     RESTAURANTE_TABLE: ${cf:dru-bos-infra-${sls:stage}.RestauranteTableName}
     STOCK_TABLE: ${cf:dru-bos-infra-${sls:stage}.StockTableName}
     FATURACAO_TABLE: ${cf:dru-bos-infra-${sls:stage}.FaturacaoTableName}
