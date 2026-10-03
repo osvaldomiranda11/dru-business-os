@@ -60,6 +60,15 @@ for (const serviceName of fs.readdirSync(servicesRoot)) {
     }
   }
 
+  const recordsAudit = sourceFiles(path.join(servicePath, 'src'))
+    .some((sourcePath) => fs.readFileSync(sourcePath, 'utf8').includes('registarAuditoria('));
+  if (recordsAudit) {
+    const auditTable = config.provider?.environment?.AUDITORIA_TABLE;
+    if (typeof auditTable !== 'string' || !auditTable.includes(`dru-bos-infra-${'${sls:stage}'}.AuditoriaTableName`)) {
+      failures.push(`${serviceName}: provider.environment.AUDITORIA_TABLE must reference the current stage's AuditoriaTableName output`);
+    }
+  }
+
   for (const [functionName, definition] of Object.entries(config.functions ?? {})) {
     const events = Array.isArray(definition.events) ? definition.events : [];
     const httpEvents = events.map((event) => event.http).filter(Boolean);

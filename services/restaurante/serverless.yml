@@ -13,6 +13,7 @@ provider:
     COGNITO_USER_POOL_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolId}
     COGNITO_CLIENT_ID: ${cf:dru-bos-infra-${sls:stage}.CognitoUserPoolClientId}
     RESTAURANTE_TABLE: ${cf:dru-bos-infra-${sls:stage}.RestauranteTableName}
+    AUDITORIA_TABLE: ${cf:dru-bos-infra-${sls:stage}.AuditoriaTableName}
     STOCK_TABLE: ${cf:dru-bos-infra-${sls:stage}.StockTableName}
     FATURACAO_TABLE: ${cf:dru-bos-infra-${sls:stage}.FaturacaoTableName}
     EVENT_BUS_NAME: ${cf:dru-bos-infra-${sls:stage}.EventBusName}
