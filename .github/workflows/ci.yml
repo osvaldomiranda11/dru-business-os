@@ -25,6 +25,9 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Validar configuração Cognito das Lambdas
+        run: npm run check:cognito
+
       - name: Type check — shared
         run: cd packages/shared && npx tsc --noEmit
 

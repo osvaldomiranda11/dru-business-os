@@ -38,6 +38,7 @@
     "deploy:all:dev": "npm run deploy:infra:dev && npm run deploy:auth:dev && npm run deploy:financeiro:dev && npm run deploy:clientes:dev && npm run deploy:faturacao:dev && npm run deploy:stock:dev && npm run deploy:subscriptions:dev && npm run deploy:notificacoes:dev && npm run deploy:dashboard:dev && npm run deploy:documentos:dev && npm run deploy:restaurante:dev && npm run deploy:assistente:dev",
     "test": "npm run test --workspaces --if-present",
     "test:unit": "jest --config jest.config.cjs --runInBand",
+    "check:cognito": "node scripts/check-cognito-config.js",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
   },
@@ -49,6 +50,7 @@
     "@types/jest": "^30.0.0",
     "fast-deep-equal": "^3.1.3",
     "jest": "^30.5.2",
+    "js-yaml": "^5.4.2",
     "serverless": "^3.40.0",
     "serverless-esbuild": "^1.52.1",
     "ts-jest": "^29.4.12"
