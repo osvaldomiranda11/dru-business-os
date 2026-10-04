@@ -133,6 +133,14 @@ Listar mesas:
 GET /restaurante/mesas
 ```
 
+Listar pedidos (paginado; usar para recuperar pedidos após reiniciar a app ou confirmar o estado depois de uma resposta incerta):
+
+```http
+GET /restaurante/pedidos?limite=100&estado=aberto
+```
+
+Filtros opcionais: `estado` e `mesaId`; `limite` aceita 1–100 e `cursor` é devolvido em `data.nextCursor`. A resposta mantém pedidos do tenant autenticado em `data.items`.
+
 Abrir pedido:
 
 ```http
@@ -184,6 +192,17 @@ Fluxo normal:
 ```text
 aberto -> em_preparacao -> pronto -> entregue -> fechado
 ```
+
+Transições pelo endpoint de estado:
+
+```text
+aberto -> em_preparacao | cancelado
+em_preparacao -> pronto | cancelado
+pronto -> entregue | cancelado
+entregue -> cancelado
+```
+
+`fechado` não deve ser enviado a `/estado`: usar `/fecho`, que aplica stock e liberta a mesa na mesma transação. Cancelar um pedido associado também liberta a mesa atomicamente.
 
 ### 3. Cozinha
 

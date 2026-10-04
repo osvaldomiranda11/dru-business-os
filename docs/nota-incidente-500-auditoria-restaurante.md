@@ -20,7 +20,7 @@ Algumas operações gravam a alteração principal antes de tentar gravar a audi
 2. Verificar se a operação já aparece refletida.
 3. Se o estado não puder ser determinado com segurança, parar e pedir verificação ao suporte/backend.
 
-Exemplos de leitura de estado incluem consultar caixas e totais, mesas e a fila da cozinha. O backend não tem atualmente `GET /restaurante/pedidos` global, portanto nem todos os pedidos podem ser consultados individualmente pelo endpoint Restaurante.
+Exemplos de leitura de estado incluem consultar caixas e totais, mesas, fila da cozinha e `GET /restaurante/pedidos`.
 
 ## Alteração no backend
 
@@ -46,3 +46,11 @@ A role IAM já inclui `dynamodb:PutItem` e a tabela de auditoria. O guard do CI 
 2. Fazer uma escrita controlada.
 3. Confirmar resposta de sucesso e registo correspondente na tabela de auditoria.
 4. Confirmar que não há `ValidationException` no CloudWatch.
+
+## Reconciliação operacional — 2026-10-04
+
+Na empresa de teste, foram encontrados pedidos sem linhas e total zero criados durante falhas condicionais ao ocupar uma mesa, além de mesas ocupadas por pedidos cancelados ou impossíveis de fechar. Os registos foram preservados e reconciliados por transações condicionais com auditoria: os pedidos vazios foram marcados como cancelados e as mesas correspondentes ficaram livres. Não foram alterados pedidos com linhas, valor ou fatura.
+
+Mesa 2 e Mesa 3 estavam associadas a pedidos `entregue`, mas sem linhas/valor/fatura; foram igualmente preservadas como pedidos cancelados e as mesas libertadas, pois o fluxo de fecho rejeita pedidos sem linhas.
+
+O código em preparação torna abertura de pedido/ocupação de mesa atómicos, liberta mesa no cancelamento e fecho, inclui auditoria nas mesmas transações e acrescenta `GET /restaurante/pedidos`. **As escritas continuam suspensas até este código passar CI e ser deployado.** Depois do deploy, fazer uma única operação controlada e confirmar resposta, estado e auditoria antes de retomar o uso normal.

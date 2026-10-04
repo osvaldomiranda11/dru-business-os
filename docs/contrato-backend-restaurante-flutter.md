@@ -12,18 +12,13 @@ Os pontos que não existem no backend atual devem ser tratados como requisitos d
 
 ## 1) Existe GET /restaurante/pedidos?
 
-Não existe no backend atual.
+Sim. A rota foi acrescentada para permitir recuperar o estado persistido e reconciliar respostas incertas.
 
-O serviço Restaurante expõe os endpoints de:
-- abrir pedido
-- adicionar linha
-- alterar estado
-- fechar pedido
-- faturar pedido
-- fila da cozinha
-- relatórios de vendas
+```http
+GET /restaurante/pedidos?limite=100&estado=aberto&mesaId=<uuid>&cursor=<cursor>
+```
 
-A listagem global de pedidos não está implementada hoje.
+Filtros opcionais: `estado`, `mesaId`, `limite` (1–100) e `cursor`. A resposta é `{ success, data: { items, total, nextCursor } }`. A consulta é isolada pelo tenant autenticado; o Flutter deve seguir `nextCursor` até `null` quando precisar de todas as páginas.
 
 ## 2) Estrutura de resposta das listas
 
@@ -276,7 +271,7 @@ O serviço não exporta um campo `ServiceEndpoint` fixo no CloudFormation; a for
 ## 12) Paginação, ordenação e filtros
 
 No backend atual:
-- não há paginação obrigatória para as listas do restaurante
+- GET /restaurante/pedidos aceita `limite` 1–100, cursor, `estado` e `mesaId`
 - GET /restaurante/caixas usa limit 100
 - GET /restaurante/mesas usa query sem paginação explícita
 - GET /restaurante/cozinha/fila carrega todos os pedidos e ordena por data de criação

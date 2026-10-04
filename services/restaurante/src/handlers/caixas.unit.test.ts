@@ -1,3 +1,5 @@
+export {};
+
 jest.mock('@dru-bos/shared', () => ({
   db: { send: jest.fn() },
   ok: (data: unknown, statusCode = 200) => ({ statusCode, body: JSON.stringify({ data }) }),
